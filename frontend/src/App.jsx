@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buscarEstabelecimentoPorId, listarCategorias, listarEstabelecimentos, verificarApi } from './api'
 import MapPlaceholder from './components/MapPlaceholder'
+import LoginUsuarioPage from './pages/LoginUsuarioPage'
+import CadastroUsuarioPage from './pages/CadastroUsuarioPage'
+import CadastroEstabelecimentoPage from './pages/CadastroEstabelecimentoPage'
+import AprovacaoPage from './pages/AprovacaoPage'
+import SolicitacoesPage from './pages/SolicitacoesPage'
+import UsuariosPage from './pages/UsuariosPage'
 import './App.css'
 import './App.override.css'
 
@@ -58,6 +64,8 @@ function App() {
   const [screenMessage, setScreenMessage] = useState('')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todos')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [onlyOpen, setOnlyOpen] = useState(false)
   const [selectedPlace, setSelectedPlace] = useState(places[0])
   const [placesData, setPlacesData] = useState(places)
   const [basePlaces, setBasePlaces] = useState(places)
@@ -114,7 +122,16 @@ function App() {
     setSearchMessage('')
   }
 
-  const filteredPlaces = useMemo(() => placesData.filter((place) => category === 'Todos' || place.category === category), [category, placesData])
+  const filteredPlaces = useMemo(() => placesData.filter((place) => {
+    const matchesCategory = category === 'Todos' || place.category === category
+    const matchesOpenStatus = !onlyOpen || place.open
+    return matchesCategory && matchesOpenStatus
+  }), [category, onlyOpen, placesData])
+
+  function clearFilters() {
+    setCategory('Todos')
+    setOnlyOpen(false)
+  }
 
   function openView(view) {
     setCurrentView(view)
@@ -131,7 +148,22 @@ function App() {
     }
   }
 
-  if (currentView !== 'home') {
+  const plannedPages = {
+    login: LoginUsuarioPage,
+    cadastroUsuario: CadastroUsuarioPage,
+    cadastroEstabelecimento: CadastroEstabelecimentoPage,
+    aprovacao: AprovacaoPage,
+    solicitacoes: SolicitacoesPage,
+    usuarios: UsuariosPage,
+  }
+
+  const PlannedPage = plannedPages[currentView]
+
+  if (PlannedPage) {
+    return <div className="app-shell"><main className="main-content"><PlannedPage onBack={() => openView('home')} /></main></div>
+  }
+
+  if (currentView === 'places') {
     const isLoginView = currentView === 'login'
     return (
       <div className="app-shell">
@@ -171,8 +203,9 @@ function App() {
         <header className="page-header"><div><p className="eyebrow">SUA CIDADE, SEU SABOR</p><h1>Encontre o próximo lugar<br /><em>que vai virar favorito.</em></h1></div>{isAuthenticated ? <button className="header-action" type="button"><Icon name="bookmark" size={17} /> Salvar busca</button> : <button className="header-action login-action" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /> Entrar para salvar</button>}</header>
 
         <section className="search-card" aria-label="Busca pública de lugares">
-          <div className="search-row"><div className="search-field"><Icon name="search" size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') handleSearch() }} placeholder="Pesquisar estabelecimento" aria-label="Pesquisar estabelecimento" />{query && <button className="clear-search" type="button" onClick={clearSearch}>Limpar</button>}</div><button className="search-submit" type="button" onClick={handleSearch}>Pesquisar</button><button className="filter-button" type="button"><Icon name="filter" size={17} /> Filtros</button></div>
+          <div className="search-row"><div className="search-field"><Icon name="search" size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') handleSearch() }} placeholder="Pesquisar estabelecimento" aria-label="Pesquisar estabelecimento" />{query && <button className="clear-search" type="button" onClick={clearSearch}>Limpar</button>}</div><button className="search-submit" type="button" onClick={handleSearch}>Pesquisar</button><button className="filter-button" type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}><Icon name="filter" size={17} /> Filtros</button></div>
           <div className="category-row"><span className="category-label">Explorar por:</span>{categoryOptions.map((item) => <button key={item} className={`category-chip ${category === item ? 'selected' : ''}`} onClick={() => setCategory(item)} type="button">{item}</button>)}</div>
+          {filtersOpen && <div className="filter-panel"><label><input type="checkbox" checked={onlyOpen} onChange={(event) => setOnlyOpen(event.target.checked)} /> Apenas abertos agora</label><button type="button" onClick={clearFilters}>Limpar filtros</button></div>}
           {searchMessage && <p className="search-message">{searchMessage}</p>}
         </section>
 
