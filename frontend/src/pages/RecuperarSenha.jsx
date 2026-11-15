@@ -24,11 +24,7 @@ export default function RecuperarSenha({ onBack, onNavigate }) {
       if (onNavigate) onNavigate('login', notice)
       else setMessage(notice)
     } catch (error) {
-      if (error.status === 404) {
-        onNavigate?.('login', 'Recuperação enviada')
-      } else {
-        setMessage(error.message || 'Não foi possível solicitar a recuperação.')
-      }
+      setMessage(error.message || 'Não foi possível solicitar a recuperação.')
     } finally {
       setLoading(false)
     }
@@ -57,7 +53,7 @@ export default function RecuperarSenha({ onBack, onNavigate }) {
             <button className="login-submit" type="submit" disabled={loading}>{loading ? 'Enviando...' : 'Enviar instruções'}</button>
           </form>
 
-          {message && <p className="login-feedback" role="status">{message}</p>}
+          {message && <p className="login-feedback login-feedback-error" role="alert">{message}</p>}
           <p className="login-register">Lembrou sua senha? <button type="button" onClick={() => onNavigate?.('login')}>Voltar para o login</button></p>
         </div>
       </div>

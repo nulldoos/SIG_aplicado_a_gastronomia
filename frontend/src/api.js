@@ -7,7 +7,14 @@ async function request(path, options = {}) {
   if (options.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const token = window.localStorage.getItem(AUTH_TOKEN_KEY)
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  let response
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  } catch (error) {
+    const networkError = new Error('Não foi possível conectar à API. Verifique se o backend está rodando.', { cause: error })
+    networkError.code = 'NETWORK_ERROR'
+    throw networkError
+  }
   const type = response.headers.get('content-type') || ''
   const data = type.includes('application/json') ? await response.json() : null
   if (!response.ok) {
@@ -44,14 +51,15 @@ export async function loginUsuario(email, senha) {
   try {
     return await request('/usuarios/login', { method: 'POST', body: JSON.stringify({ email, senha }) })
   } catch (error) {
-    if (error.status >= 400 || error.message === 'Failed to fetch') {
+    if (error.status === 401 || error.status === 404) {
       throw new Error('Usuário não encontrado.', { cause: error })
     }
     throw error
   }
 }
 export const cadastrarUsuario = (dados) => request('/usuarios/cadastro', { method: 'POST', body: JSON.stringify(dados) })
-export const recuperarSenha = (email) => request('/usuarios/recuperar-senha', { method: 'POST', body: JSON.stringify({ email }) })
+export const recuperarSenha = (email) => request('/recuperacao-senha/solicitar', { method: 'POST', body: JSON.stringify({ email }) })
+export const redefinirSenha = (token, novaSenha) => request('/recuperacao-senha/redefinir', { method: 'POST', body: JSON.stringify({ token, novaSenha }) })
 export const atualizarMeuPerfil = (nome) => request('/usuarios/me', { method: 'PATCH', body: JSON.stringify({ nome }) })
 export const listarUsuarios = () => request('/usuarios')
 export const atualizarStatusUsuario = (id, ativo) => request(`/usuarios/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ ativo }) })
