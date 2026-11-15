@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { loginMock } from '../mockAuth'
 
 function LoginPinIcon() {
   return (
@@ -17,7 +18,7 @@ function EyeIcon({ hidden = false }) {
   )
 }
 
-export default function LoginUsuario({ onBack, onNavigate }) {
+export default function LoginUsuario({ onBack, onNavigate, notice, onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -25,11 +26,18 @@ export default function LoginUsuario({ onBack, onNavigate }) {
 
   function handleSubmit(event) {
     event.preventDefault()
-    setMessage('Formulário pronto para conectar com a API de login.')
+    const result = loginMock(email, password)
+    if (!result.ok) {
+      setMessage(result.message)
+      return
+    }
+    onLogin?.(result.user)
   }
 
   return (
     <section className="login-page">
+      {notice && <div className="login-toast" role="status"><span className="login-toast-icon" aria-hidden="true">✓</span><span>{notice}</span></div>}
+      {message && <div className="login-toast login-toast-error" role="alert"><span className="login-toast-icon" aria-hidden="true">!</span><span>{message}</span></div>}
       <button className="back-button login-back-button" type="button" onClick={onBack}>← Voltar para explorar</button>
 
       <div className="login-layout">
@@ -49,7 +57,7 @@ export default function LoginUsuario({ onBack, onNavigate }) {
             <label htmlFor="login-email">E-mail</label>
             <input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} onBlur={(event) => event.currentTarget.reportValidity()} placeholder="voce@exemplo.com" autoComplete="email" required />
 
-            <div className="login-label-row"><label htmlFor="login-password">Senha</label><button type="button" onClick={() => setMessage('A recuperação de senha será adicionada depois.')}>Esqueci minha senha</button></div>
+            <div className="login-label-row"><label htmlFor="login-password">Senha</label><button type="button" onClick={() => onNavigate?.('recuperarSenha')}>Esqueci minha senha</button></div>
             <div className="password-field">
               <input id="login-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Digite sua senha" autoComplete="current-password" required />
               <button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}><EyeIcon hidden={showPassword} /></button>
@@ -59,7 +67,6 @@ export default function LoginUsuario({ onBack, onNavigate }) {
             <button className="login-submit" type="submit">Entrar</button>
           </form>
 
-          {message && <p className="login-feedback" role="status">{message}</p>}
           <p className="login-register">Ainda não tem uma conta? <button type="button" onClick={() => onNavigate?.('cadastroUsuario')}>Criar cadastro</button></p>
         </div>
       </div>

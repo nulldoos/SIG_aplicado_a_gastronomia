@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { buscarEstabelecimentoPorId, listarCategorias, listarEstabelecimentos, verificarApi } from './api'
 import MapPlaceholder from './components/MapPlaceholder'
 import LoginUsuario from './pages/LoginUsuario'
+import RecuperarSenha from './pages/RecuperarSenha'
 import CadastroUsuario from './pages/CadastroUsuario'
 import CadastroEstabelecimento from './pages/CadastroEstabelecimento'
+import AdminDashboard from './pages/AdminDashboard'
+import ListaEstabelecimentos from './pages/ListaEstabelecimentos'
 import Aprovacao from './pages/Aprovacao'
 import Solicitacoes from './pages/Solicitacoes'
 import Usuarios from './pages/Usuarios'
+import { limparUsuarioMock, promoverUsuarioMockExistente } from './mockAuth'
 import './App.css'
 import './App.override.css'
 
@@ -37,6 +41,10 @@ function normalizePlace(place, index = 0) {
   }
 }
 
+function normalizeSearchText(value) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 function Icon({ name, size = 18 }) {
   const icons = {
     compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2Z" /></>,
@@ -59,7 +67,8 @@ function Icon({ name, size = 18 }) {
 function App() {
   const [activeNav, setActiveNav] = useState('explorar')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [isAuthenticated] = useState(false)
+  const [mockUser, setMockUser] = useState(promoverUsuarioMockExistente)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(promoverUsuarioMockExistente()))
   const [currentView, setCurrentView] = useState('home')
   const [screenMessage, setScreenMessage] = useState('')
   const [query, setQuery] = useState('')
@@ -71,6 +80,7 @@ function App() {
   const [basePlaces, setBasePlaces] = useState(places)
   const [categoryOptions, setCategoryOptions] = useState(categories)
   const [searchMessage, setSearchMessage] = useState('')
+  const isAdmin = isAuthenticated && mockUser?.tipo === 'ADMIN'
 
   useEffect(() => {
     let mounted = true
@@ -89,26 +99,30 @@ function App() {
   }, [])
 
   async function handleSearch() {
-    const id = query.trim()
-    if (!id) {
+    const term = query.trim()
+    if (!term) {
       setPlacesData(basePlaces.length ? basePlaces : places)
       setSelectedPlace(basePlaces[0] || places[0])
       setSearchMessage('')
       return
     }
-    if (!/^\d+$/.test(id)) {
-      setPlacesData([])
-      setSelectedPlace(null)
-      setSearchMessage('Digite um ID numérico para pesquisar.')
+
+    if (!/^\d+$/.test(term)) {
+      const availablePlaces = basePlaces.length ? basePlaces : places
+      const searchTerm = normalizeSearchText(term)
+      const matches = availablePlaces.filter((place) => normalizeSearchText(place.name).includes(searchTerm))
+      setPlacesData(matches)
+      setSelectedPlace(matches[0] || null)
+      setSearchMessage(matches.length ? '' : 'Nenhum estabelecimento encontrado para esse nome.')
       return
     }
     try {
-      const result = normalizePlace(await buscarEstabelecimentoPorId(id))
+      const result = normalizePlace(await buscarEstabelecimentoPorId(term))
       setPlacesData([result])
       setSelectedPlace(result)
       setSearchMessage('')
     } catch {
-      const demoResult = places.find((place) => String(place.id) === id)
+      const demoResult = places.find((place) => String(place.id) === term)
       setPlacesData(demoResult ? [demoResult] : [])
       setSelectedPlace(demoResult || null)
       setSearchMessage(demoResult ? 'Exemplo visual enquanto o banco não está conectado.' : 'Nenhum estabelecimento aprovado foi encontrado para esse ID.')
@@ -133,9 +147,27 @@ function App() {
     setOnlyOpen(false)
   }
 
-  function openView(view) {
+  function openView(view, notice = '') {
     setCurrentView(view)
-    setScreenMessage('')
+    setScreenMessage(notice)
+  }
+
+  function handleMockLogin(user) {
+    setMockUser(user)
+    setIsAuthenticated(true)
+    openView('home', 'Login realizado com sucesso.')
+  }
+
+  function handleMockRegister(user) {
+    setMockUser(user)
+    openView('login', 'Cadastro criado neste navegador. Agora faça login.')
+  }
+
+  function handleMockLogout() {
+    limparUsuarioMock()
+    setMockUser(null)
+    setIsAuthenticated(false)
+    openView('home', 'Você saiu da conta.')
   }
 
   async function testApi() {
@@ -150,8 +182,11 @@ function App() {
 
   const plannedPages = {
     login: LoginUsuario,
+    recuperarSenha: RecuperarSenha,
     cadastroUsuario: CadastroUsuario,
     cadastroEstabelecimento: CadastroEstabelecimento,
+    admin: AdminDashboard,
+    places: ListaEstabelecimentos,
     aprovacao: Aprovacao,
     solicitacoes: Solicitacoes,
     usuarios: Usuarios,
@@ -160,7 +195,30 @@ function App() {
   const PlannedPage = plannedPages[currentView]
 
   if (PlannedPage) {
-    return <div className="app-shell"><main className="main-content"><PlannedPage onBack={() => openView('home')} onNavigate={openView} /></main></div>
+    const showSidebar = ['cadastroEstabelecimento', 'places'].includes(currentView) || (isAdmin && ['admin', 'aprovacao', 'usuarios'].includes(currentView))
+    return (
+      <div className={`app-shell ${showSidebar && !sidebarOpen ? 'sidebar-collapsed' : ''}`}>
+        {showSidebar && <aside className="sidebar">
+          <div>
+            <div className="brand"><div className="brand-mark"><Icon name="pin" size={24} /></div><div><strong>Comê<span>Maps</span></strong><small>comida perto de você</small></div></div>
+            <div className="sidebar-label">NAVEGAÇÃO</div>
+            <nav className="nav-list" aria-label="Navegação principal">
+              <button className={`nav-item ${activeNav === 'explorar' ? 'active' : ''}`} onClick={() => { setActiveNav('explorar'); openView('home') }} type="button"><Icon name="compass" /><span>Explorar</span></button><button className={`nav-item ${activeNav === 'places' ? 'active' : ''}`} onClick={() => { setActiveNav('places'); openView('places') }} type="button"><Icon name="pin" /><span>Todos os locais</span></button>
+              {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => setActiveNav('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => setActiveNav('sugerir')} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button></>}
+              {isAdmin && <><div className="sidebar-label admin-sidebar-label">ADMINISTRAÇÃO</div><button className={`nav-item ${activeNav === 'admin' ? 'active' : ''}`} onClick={() => { setActiveNav('admin'); openView('admin') }} type="button"><Icon name="compass" /><span>Visão geral</span></button><button className={`nav-item ${activeNav === 'aprovacao' ? 'active' : ''}`} onClick={() => { setActiveNav('aprovacao'); openView('aprovacao') }} type="button"><Icon name="bookmark" /><span>Aprovar locais</span></button><button className={`nav-item ${activeNav === 'usuarios' ? 'active' : ''}`} onClick={() => { setActiveNav('usuarios'); openView('usuarios') }} type="button"><Icon name="user" /><span>Usuários</span></button></>}
+            </nav>
+          </div>
+          <div className="sidebar-footer">
+            {isAuthenticated ? <button className="profile-card" type="button"><span className="avatar">{mockUser?.nome?.trim().charAt(0).toUpperCase() || 'U'}</span><span><strong>{mockUser?.nome || 'Usuário'}</strong><small>{mockUser?.tipo === 'ADMIN' ? 'Administrador' : 'Minha conta'}</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
+            {isAuthenticated && <><button className="settings-link" type="button"><Icon name="settings" size={16} /> Configurações</button><button className="settings-link" type="button" onClick={handleMockLogout}><Icon name="back" size={16} /> Sair</button></>}
+          </div>
+        </aside>}
+        <main className="main-content">
+          {showSidebar && <button className="sidebar-toggle" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? 'Recolher menu' : 'Abrir menu'} title={sidebarOpen ? 'Recolher menu' : 'Abrir menu'}><Icon name="menu" size={19} /></button>}
+          <PlannedPage onBack={() => openView('home')} onNavigate={openView} notice={screenMessage} onLogin={handleMockLogin} onRegister={handleMockRegister} />
+        </main>
+      </div>
+    )
   }
 
   if (currentView === 'places') {
@@ -188,22 +246,24 @@ function App() {
           <div className="brand"><div className="brand-mark"><Icon name="pin" size={24} /></div><div><strong>Comê<span>Maps</span></strong><small>comida perto de você</small></div></div>
           <div className="sidebar-label">NAVEGAÇÃO</div>
           <nav className="nav-list" aria-label="Navegação principal">
-            <button className={`nav-item ${activeNav === 'explorar' ? 'active' : ''}`} onClick={() => setActiveNav('explorar')} type="button"><Icon name="compass" /><span>Explorar</span></button>
-            {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => setActiveNav('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => setActiveNav('sugerir')} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button></>}
+            <button className={`nav-item ${activeNav === 'explorar' ? 'active' : ''}`} onClick={() => setActiveNav('explorar')} type="button"><Icon name="compass" /><span>Explorar</span></button><button className={`nav-item ${activeNav === 'places' ? 'active' : ''}`} onClick={() => { setActiveNav('places'); openView('places') }} type="button"><Icon name="pin" /><span>Todos os locais</span></button>
+            {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => setActiveNav('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => { setActiveNav('sugerir'); openView('cadastroEstabelecimento') }} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button></>}
+            {isAdmin && <><div className="sidebar-label admin-sidebar-label">ADMINISTRAÇÃO</div><button className={`nav-item ${activeNav === 'admin' ? 'active' : ''}`} onClick={() => { setActiveNav('admin'); openView('admin') }} type="button"><Icon name="compass" /><span>Visão geral</span></button><button className={`nav-item ${activeNav === 'aprovacao' ? 'active' : ''}`} onClick={() => { setActiveNav('aprovacao'); openView('aprovacao') }} type="button"><Icon name="bookmark" /><span>Aprovar locais</span></button><button className={`nav-item ${activeNav === 'usuarios' ? 'active' : ''}`} onClick={() => { setActiveNav('usuarios'); openView('usuarios') }} type="button"><Icon name="user" /><span>Usuários</span></button></>}
           </nav>
         </div>
         <div className="sidebar-footer">
-          {isAuthenticated ? <button className="profile-card" type="button"><span className="avatar">N</span><span><strong>Nayara</strong><small>Minha conta</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
-          {isAuthenticated && <button className="settings-link" type="button"><Icon name="settings" size={16} /> Configurações</button>}
+          {isAuthenticated ? <button className="profile-card" type="button" onClick={isAdmin ? () => { setActiveNav('admin'); openView('admin') } : undefined}><span className="avatar">{mockUser?.nome?.trim().charAt(0).toUpperCase() || 'U'}</span><span><strong>{mockUser?.nome || 'Usuário'}</strong><small>{mockUser?.tipo === 'ADMIN' ? 'Administrador' : 'Minha conta'}</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
+          {isAuthenticated && <><button className="settings-link" type="button"><Icon name="settings" size={16} /> Configurações</button><button className="settings-link" type="button" onClick={handleMockLogout}><Icon name="back" size={16} /> Sair</button></>}
         </div>
       </aside>
 
       <main className="main-content">
+        {screenMessage && <div className="login-toast" role="status"><span className="login-toast-icon" aria-hidden="true">✓</span><span>{screenMessage}</span></div>}
         <button className="sidebar-toggle" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? 'Recolher menu' : 'Abrir menu'} title={sidebarOpen ? 'Recolher menu' : 'Abrir menu'}><Icon name="menu" size={19} /></button>
-        <header className="page-header"><div><p className="eyebrow">SUA CIDADE, SEU SABOR</p><h1>Encontre o próximo lugar<br /><em>que vai virar favorito.</em></h1></div>{isAuthenticated ? <button className="header-action" type="button"><Icon name="bookmark" size={17} /> Salvar busca</button> : <button className="header-action login-action" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /> Entrar para salvar</button>}</header>
+        <header className="page-header"><div><p className="eyebrow">SUA CIDADE, SEU SABOR</p><h1>Encontre o próximo lugar<br /><em>que vai virar favorito.</em></h1></div></header>
 
         <section className="search-card" aria-label="Busca pública de lugares">
-          <div className="search-row"><div className="search-field"><Icon name="search" size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') handleSearch() }} placeholder="Pesquisar estabelecimento" aria-label="Pesquisar estabelecimento" />{query && <button className="clear-search" type="button" onClick={clearSearch}>Limpar</button>}</div><button className="search-submit" type="button" onClick={handleSearch}>Pesquisar</button><button className="filter-button" type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}><Icon name="filter" size={17} /> Filtros</button></div>
+          <div className="search-row"><div className="search-field"><Icon name="search" size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') handleSearch() }} placeholder="Pesquisar por nome ou ID" aria-label="Pesquisar por nome ou ID" />{query && <button className="clear-search" type="button" onClick={clearSearch}>Limpar</button>}</div><button className="search-submit" type="button" onClick={handleSearch}>Pesquisar</button><button className="filter-button" type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}><Icon name="filter" size={17} /> Filtros</button></div>
           <div className="category-row"><span className="category-label">Explorar por:</span>{categoryOptions.map((item) => <button key={item} className={`category-chip ${category === item ? 'selected' : ''}`} onClick={() => setCategory(item)} type="button">{item}</button>)}</div>
           {filtersOpen && <div className="filter-panel"><label><input type="checkbox" checked={onlyOpen} onChange={(event) => setOnlyOpen(event.target.checked)} /> Apenas abertos agora</label><button type="button" onClick={clearFilters}>Limpar filtros</button></div>}
           {searchMessage && <p className="search-message">{searchMessage}</p>}

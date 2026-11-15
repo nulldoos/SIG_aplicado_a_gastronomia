@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { cadastrarUsuarioMock } from '../mockAuth'
 
 function CadastroPinIcon() {
   return (
@@ -17,13 +18,14 @@ function EyeIcon({ hidden = false }) {
   )
 }
 
-export default function CadastroUsuario({ onBack, onNavigate }) {
+export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [confirmationTouched, setConfirmationTouched] = useState(false)
   const [message, setMessage] = useState('')
 
   const passwordRules = [
@@ -34,6 +36,8 @@ export default function CadastroUsuario({ onBack, onNavigate }) {
   ]
 
   const passwordIsValid = passwordRules.every((rule) => rule.valid)
+  const passwordsMatch = password === passwordConfirmation
+  const showPasswordMatchFeedback = confirmationTouched && passwordConfirmation.length > 0
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -45,7 +49,12 @@ export default function CadastroUsuario({ onBack, onNavigate }) {
       setMessage('As senhas precisam ser iguais.')
       return
     }
-    setMessage('Formulário pronto para conectar com a API de cadastro.')
+    const result = cadastrarUsuarioMock({ nome: name, email, senha: password })
+    if (!result.ok) {
+      setMessage(result.message)
+      return
+    }
+    onRegister?.(result.user)
   }
 
   return (
@@ -83,9 +92,10 @@ export default function CadastroUsuario({ onBack, onNavigate }) {
 
             <label htmlFor="register-password-confirmation">Confirmar senha</label>
             <div className="password-field">
-              <input id="register-password-confirmation" type={showConfirmation ? 'text' : 'password'} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} placeholder="Digite a senha novamente" autoComplete="new-password" minLength="8" required />
+              <input id="register-password-confirmation" type={showConfirmation ? 'text' : 'password'} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} onBlur={() => setConfirmationTouched(true)} aria-invalid={showPasswordMatchFeedback && !passwordsMatch} aria-describedby={showPasswordMatchFeedback && !passwordsMatch ? 'password-match-feedback' : undefined} placeholder="Digite a senha novamente" autoComplete="new-password" minLength="8" required />
               <button className="password-toggle" type="button" onClick={() => setShowConfirmation((visible) => !visible)} aria-label={showConfirmation ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}><EyeIcon hidden={showConfirmation} /></button>
             </div>
+            {showPasswordMatchFeedback && !passwordsMatch && <p id="password-match-feedback" className="password-match-feedback error" role="status">As senhas precisam ser iguais.</p>}
 
             <button className="login-submit" type="submit">Criar conta</button>
           </form>

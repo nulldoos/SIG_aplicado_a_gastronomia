@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Autenticação simulada somente para testes locais
+src/mockAuth.js
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
