@@ -76,10 +76,22 @@ async function atualizarAtivo(id, ativo) {
     return resultado.affectedRows > 0;
 }
 
+async function atualizarSenha(id, senhaHash) {
+    const [resultado] = await conexao.query(
+        `UPDATE usuarios
+         SET senha_hash = ?
+         WHERE id = ?`,
+        [senhaHash, id]
+    );
+
+    return resultado.affectedRows > 0;
+}
+
 module.exports = {
     cadastrarUsuario,
     buscarPorEmail,
     listarTodos,
     buscarPorId,
-    atualizarAtivo
+    atualizarAtivo,
+    atualizarSenha
 };

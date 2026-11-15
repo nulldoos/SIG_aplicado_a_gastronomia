@@ -1,0 +1,18 @@
+
+const express = require("express");
+const router = express.Router();
+
+const autenticarUsuario = require("../middlewares/autenticarUsuario");
+const favoritoController = require("../controllers/favoritoController");
+
+router.use(autenticarUsuario);
+
+router.get("/", favoritoController.listarFavoritos);
+
+router.post("/:estabelecimentoId", favoritoController.adicionarFavorito);
+
+router.delete("/:estabelecimentoId", favoritoController.removerFavorito);
+
+router.get("/verificar/:estabelecimentoId", favoritoController.verificarFavorito);
+
+module.exports = router;

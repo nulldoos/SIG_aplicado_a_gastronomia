@@ -2,9 +2,11 @@
 const express = require("express");
 const cors = require("cors");
 
-const estabelecimentoRoutes = require("./routes/estabelecimentoRoutes");
-const usuarioRoutes = require("./routes/usuarioRoutes");
-const categoriaRoutes = require("./routes/categoriaRoutes");
+const estabelecimentoRoutes = require("./routers/estabelecimentoRoutes");
+const usuarioRoutes = require("./routers/usuarioRoutes");
+const categoriaRoutes = require("./routers/categoriaRoutes");
+const favoritoRoutes = require("./routers/favoritoRoutes");
+const recuperacaoSenhaRoutes = require("./routers/recSenhaRoutes");
 
 const app = express();
 
@@ -28,6 +30,8 @@ app.get("/", (req, res) => {
 app.use("/api/estabelecimentos", estabelecimentoRoutes);
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/categorias", categoriaRoutes);
+app.use("/api/favoritos", favoritoRoutes);
+app.use("/api/recuperacao-senha", recuperacaoSenhaRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
