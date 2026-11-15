@@ -14,6 +14,14 @@ async function autenticarUsuario(req, res, next) {
 
         const token = cabecalho.split(" ")[1];
 
+        if (!process.env.JWT_SECRET) {
+            console.error("JWT_SECRET não configurado.");
+
+            return res.status(500).json({
+                mensagem: "Erro interno de configuração."
+            });
+        }
+
         const dadosUsuario = jwt.verify(
             token,
             process.env.JWT_SECRET

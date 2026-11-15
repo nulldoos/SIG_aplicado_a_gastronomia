@@ -7,6 +7,7 @@ const usuarioRoutes = require("./routers/usuarioRoutes");
 const categoriaRoutes = require("./routers/categoriaRoutes");
 const favoritoRoutes = require("./routers/favoritoRoutes");
 const recuperacaoSenhaRoutes = require("./routers/recSenhaRoutes");
+const googlePlacesRoutes = require("./routers/googlePlacesRoutes");
 
 const app = express();
 
@@ -32,7 +33,7 @@ app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/categorias", categoriaRoutes);
 app.use("/api/favoritos", favoritoRoutes);
 app.use("/api/recuperacao-senha", recuperacaoSenhaRoutes);
-
+app.use("/api/google-places", googlePlacesRoutes);
 app.use((req, res) => {
     res.status(404).json({
         mensagem: "Rota não encontrada."

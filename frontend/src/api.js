@@ -56,6 +56,7 @@ export const atualizarMeuPerfil = (nome) => request('/usuarios/me', { method: 'P
 export const listarUsuarios = () => request('/usuarios')
 export const atualizarStatusUsuario = (id, ativo) => request(`/usuarios/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ ativo }) })
 export const listarEstabelecimentos = () => request('/estabelecimentos')
+export const listarEstabelecimentosGoogle = () => request('/google-places')
 export const listarEstabelecimentosAdmin = () => request('/estabelecimentos/admin')
 export const listarEstabelecimentosPendentes = () => request('/estabelecimentos/pendentes')
 export const listarMinhasSolicitacoes = () => request('/estabelecimentos/minhas')

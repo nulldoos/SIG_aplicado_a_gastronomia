@@ -322,10 +322,93 @@ async function atualizarStatusUsuario(req, res) {
     }
 }
 
+async function atualizarUsuario(req, res) {
+    try {
+        const id = Number(req.params.id);
+        const { nome, email } = req.body;
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                mensagem: "ID de usuário inválido."
+            });
+        }
+
+        // Usuário só pode editar a própria conta.
+        // Administradores podem editar qualquer usuário.
+        if (req.usuario.tipo !== "ADMIN" && req.usuario.id !== id) {
+            return res.status(403).json({
+                mensagem: "Você não tem permissão para atualizar este usuário."
+            });
+        }
+
+        if (
+            typeof nome !== "string" ||
+            typeof email !== "string" ||
+            !nome.trim() ||
+            !email.trim()
+        ) {
+            return res.status(400).json({
+                mensagem: "Informe um nome e um e-mail válidos."
+            });
+        }
+
+        const nomeFormatado = nome.trim();
+        const emailFormatado = email.trim().toLowerCase();
+
+        if (nomeFormatado.length > 100 || emailFormatado.length > 150) {
+            return res.status(400).json({
+                mensagem: "Nome ou e-mail ultrapassa o limite de caracteres."
+            });
+        }
+
+        if (!emailValido(emailFormatado)) {
+            return res.status(400).json({
+                mensagem: "E-mail inválido."
+            });
+        }
+
+        const usuarioExistente = await usuarioModel.buscarPorId(id);
+
+        if (!usuarioExistente) {
+            return res.status(404).json({
+                mensagem: "Usuário não encontrado."
+            });
+        }
+
+        const emailEmUso = await usuarioModel.buscarPorEmail(emailFormatado);
+
+        if (emailEmUso && emailEmUso.id !== id) {
+            return res.status(409).json({
+                mensagem: "Este e-mail já está cadastrado."
+            });
+        }
+
+        await usuarioModel.atualizarDados(id, {
+            nome: nomeFormatado,
+            email: emailFormatado
+        });
+
+        const usuarioAtualizado = await usuarioModel.buscarPorId(id);
+
+        return res.status(200).json({
+            mensagem: "Dados do usuário atualizados com sucesso.",
+            usuario: usuarioAtualizado
+        });
+
+    } catch (erro) {
+        console.error("Erro ao atualizar usuário:", erro);
+
+        return res.status(500).json({
+            mensagem: "Erro ao atualizar usuário."
+        });
+    }
+}
+
 module.exports = {
     cadastrarUsuario,
     loginUsuario,
     listarUsuarios,
     buscarUsuario,
-    atualizarStatusUsuario
+    atualizarStatusUsuario,
+    atualizarUsuario
 };

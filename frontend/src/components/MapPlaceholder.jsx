@@ -1,24 +1,71 @@
-function MapIcon({ name, size = 18 }) {
-  const shapes = {
-    pin: <><path d="M20 10.2c0 5.1-8 10.8-8 10.8S4 15.3 4 10.2a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
-    arrow: <><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></>,
-  }
 
-  return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>
-}
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 
 export default function MapPlaceholder({ selectedPlace, places = [] }) {
+  console.log('Estabelecimentos recebidos no mapa:', places)
+
+  const placesWithCoordinates = places.filter(
+    (place) =>
+      place.latitude !== null &&
+      place.longitude !== null &&
+      Number.isFinite(place.latitude) &&
+      Number.isFinite(place.longitude)
+  )
+
+  const initialCenter = placesWithCoordinates.length > 0
+    ? [
+        placesWithCoordinates[0].latitude,
+        placesWithCoordinates[0].longitude,
+      ]
+    : [-19.0, -57.0]
+
   return (
-    <div className="map-canvas" data-place-count={places.length} aria-label="Área reservada para integração com mapa">
-      <div className="map-grid" />
-      <div className="map-message">
-        <div className="map-placeholder-icon"><MapIcon name="pin" size={25} /></div>
-        <p className="eyebrow">PRÓXIMA ETAPA</p>
-        <h3>Mapa da cidade</h3>
-        <p>Esta área ficará conectada ao Google Maps ou a outra solução de mapas.</p>
-        <button type="button">Ver integração planejada <MapIcon name="arrow" size={15} /></button>
-      </div>
-      {selectedPlace && <div className="map-detail"><div className={`detail-icon ${selectedPlace.tone}`}><MapIcon name="pin" size={20} /></div><div><strong>{selectedPlace.name}</strong><span>{selectedPlace.category} · {selectedPlace.distance}</span></div><button type="button" aria-label="Abrir detalhes"><MapIcon name="arrow" size={16} /></button></div>}
+    <div className="map-canvas">
+      <MapContainer
+        center={initialCenter}
+        zoom={13}
+        scrollWheelZoom={true}
+        style={{ height: '100%', width: '100%' }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {placesWithCoordinates.map((place) => {
+          const isSelected = selectedPlace?.id === place.id
+
+          return (
+            <CircleMarker
+              key={place.id}
+              center={[place.latitude, place.longitude]}
+              radius={isSelected ? 11 : 8}
+              pathOptions={{
+                color: '#f97316',
+                fillColor: '#f97316',
+                fillOpacity: isSelected ? 1 : 0.85,
+                weight: isSelected ? 4 : 2,
+              }}
+            >
+              <Popup>
+                <strong>{place.name}</strong>
+                <br />
+                {place.category}
+                <br />
+                {place.address}
+
+                {place.fonte && (
+                  <>
+                    <br />
+                    <small>Fonte: {place.fonte}</small>
+                  </>
+                )}
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+      </MapContainer>
     </div>
   )
 }

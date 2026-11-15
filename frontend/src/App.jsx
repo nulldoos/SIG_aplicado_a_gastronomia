@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { adicionarFavorito, atualizarMeuPerfil, buscarEstabelecimentoPorId, clearAuthSession, getAuthToken, getStoredUser, listarCategorias, listarEstabelecimentos, listarFavoritos, removerFavorito, saveAuthSession, verificarApi } from './api'
+import { adicionarFavorito, atualizarMeuPerfil, buscarEstabelecimentoPorId, clearAuthSession, getAuthToken, getStoredUser, listarCategorias, listarEstabelecimentosGoogle, listarEstabelecimentos, listarFavoritos, removerFavorito, saveAuthSession, verificarApi } from './api'
 import MapPlaceholder from './components/MapPlaceholder'
 import LoginUsuario from './pages/LoginUsuario'
 import RecuperarSenha from './pages/RecuperarSenha'
@@ -16,7 +16,19 @@ import Usuarios from './pages/Usuarios'
 import './App.css'
 import './App.override.css'
 
-const categories = ['Todos']
+const categories = [
+  'Todos',
+  'Bar',
+  'Cafeteria',
+  'Comida Japonesa',
+  'Comida Mexicana',
+  'Doceria',
+  'Hamburgueria',
+  'Lanchonete',
+  'Pizzaria',
+  'Restaurante',
+  'Sorveteria',
+]
 
 function normalizePlace(place, index = 0) {
   const category = place.categorias?.split(',')[0]?.trim() || place.categoria?.nome || place.category || 'Gastronomia'
@@ -99,6 +111,7 @@ function App() {
   const [selectedPlace, setSelectedPlace] = useState(null)
   const [placesData, setPlacesData] = useState([])
   const [basePlaces, setBasePlaces] = useState([])
+  const [googlePlaces, setGooglePlaces] = useState([])
   const [categoryOptions, setCategoryOptions] = useState(categories)
   const [searchMessage, setSearchMessage] = useState('')
   const [favoritePlaces, setFavoritePlaces] = useState([])
@@ -161,11 +174,38 @@ function App() {
       setPlacesData(normalizedPlaces)
       setBasePlaces(normalizedPlaces)
       setSelectedPlace(normalizedPlaces[0] || null)
-      if (normalizedCategories.length > 0) setCategoryOptions(['Todos', ...normalizedCategories])
+      setCategoryOptions(['Todos', ...new Set([...categories.slice(1), ...normalizedCategories]),])
     }).catch(() => {
       if (mounted) setSearchMessage('')
     })
     return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    console.log(
+      'Categorias retornadas pelo Google:',
+      [...new Set(googlePlaces.map((place) => place.categoria))]
+    )
+  }, [googlePlaces])
+
+  useEffect(() => {
+    let mounted = true
+
+    listarEstabelecimentosGoogle()
+      .then((estabelecimentos) => {
+        if (!mounted) return
+
+        setGooglePlaces(
+          Array.isArray(estabelecimentos) ? estabelecimentos : []
+        )
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar estabelecimentos do Google:', error)
+      })
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
   async function handleSearch() {
@@ -210,6 +250,33 @@ function App() {
     const matchesOpenStatus = !onlyOpen || place.open
     return matchesCategory && matchesOpenStatus
   }), [category, onlyOpen, placesData])
+
+  const googlePlacesForMap = useMemo(() => {
+    return googlePlaces.map((place) => ({
+      id: place.id,
+      name: place.nome || 'Estabelecimento sem nome',
+      category: place.categoria || 'Gastronomia',
+      address: place.endereco || 'Endereço não informado',
+      latitude: Number(place.latitude),
+      longitude: Number(place.longitude),
+      fonte: place.fonte,
+    })).filter((place) =>
+      Number.isFinite(place.latitude) &&
+      Number.isFinite(place.longitude)
+    )
+  }, [googlePlaces])
+
+  const filteredGooglePlaces = useMemo(() => {
+    return googlePlacesForMap.filter((place) => {
+      const matchesCategory =
+        category === 'Todos' ||
+        normalizeSearchText(place.category).includes(
+          normalizeSearchText(category)
+        )
+
+      return matchesCategory
+    })
+  }, [googlePlacesForMap, category])
 
   function clearFilters() {
     setCategory('Todos')
@@ -430,7 +497,7 @@ function App() {
 
           <div className="map-column">
             <div className="map-header"><div><p className="eyebrow">VISÃO GERAL</p><h2>Mapa da região</h2></div><button className="map-control" type="button" onClick={handleRequestLocation}><Icon name="compass" size={16} /> {userLocation ? 'Localização atualizada' : 'Minha localização'}</button></div>
-            <MapPlaceholder selectedPlace={selectedPlace} places={filteredPlaces} />
+            <MapPlaceholder selectedPlace={selectedPlace} places={[...filteredPlaces, ...filteredGooglePlaces]}/>
           </div>
         </section>
       </main>

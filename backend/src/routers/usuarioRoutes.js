@@ -34,4 +34,11 @@ router.patch(
     usuarioController.atualizarStatusUsuario
 );
 
+// atualizar dados do usuário
+router.put(
+    "/:id",
+    autenticarUsuario,
+    usuarioController.atualizarUsuario
+);
+
 module.exports = router;
