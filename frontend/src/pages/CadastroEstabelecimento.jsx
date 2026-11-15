@@ -1,8 +1,5 @@
-import { useState } from 'react'
-import { buscarEnderecoPorCep } from '../api'
-import { sugerirEstabelecimentoMock } from '../mockAuth'
-
-const categorias = ['Brasileira', 'Cafeteria', 'Hambúrguer', 'Saudável', 'Pizzaria', 'Outro']
+import { useEffect, useState } from 'react'
+import { buscarEnderecoPorCep, cadastrarEstabelecimento, listarCategorias } from '../api'
 
 function formatTelefone(value) {
   const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -31,10 +28,21 @@ function formatCoordinate(value, maxLength) {
 }
 
 export default function CadastroEstabelecimento({ onBack }) {
-  const [form, setForm] = useState({ nome: '', categoria: '', descricao: '', cep: '', endereco: '', telefone: '', latitude: '', longitude: '' })
+  const [form, setForm] = useState({ nome: '', categoria_id: '', descricao: '', cep: '', endereco: '', telefone: '', latitude: '', longitude: '' })
+  const [categorias, setCategorias] = useState([])
   const [successMessage, setSuccessMessage] = useState('')
   const [cepLoading, setCepLoading] = useState(false)
   const [cepStatus, setCepStatus] = useState('idle')
+
+  useEffect(() => {
+    listarCategorias().then(setCategorias).catch(() => setCategorias([]))
+  }, [])
+
+  useEffect(() => {
+    if (!successMessage) return undefined
+    const timeout = window.setTimeout(() => setSuccessMessage(''), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [successMessage])
 
   function updateField(event) {
     const { name, value } = event.target
@@ -68,12 +76,18 @@ export default function CadastroEstabelecimento({ onBack }) {
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    sugerirEstabelecimentoMock(form)
-    setSuccessMessage('Solicitação criada localmente. Um administrador deverá aprovar o estabelecimento.')
-    setForm({ nome: '', categoria: '', descricao: '', cep: '', endereco: '', telefone: '', latitude: '', longitude: '' })
+    try {
+      const response = await cadastrarEstabelecimento({ ...form, categoria_id: Number(form.categoria_id), cep: undefined })
+      setSuccessMessage(response?.mensagem || 'Solicitação enviada para aprovação.')
+    } catch (error) {
+      setSuccessMessage(error.message || 'Não foi possível enviar a solicitação.')
+      return
+    }
+    setForm({ nome: '', categoria_id: '', descricao: '', cep: '', endereco: '', telefone: '', latitude: '', longitude: '' })
     setCepStatus('idle')
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }
 
   return (
@@ -95,7 +109,7 @@ export default function CadastroEstabelecimento({ onBack }) {
 
         <div className="establishment-grid">
           <div className="form-field form-field-wide"><label htmlFor="establishment-name">Nome do estabelecimento *</label><input id="establishment-name" name="nome" value={form.nome} onChange={updateField} placeholder="Ex.: Sabor da Vila" required /></div>
-          <div className="form-field form-field-wide"><label htmlFor="establishment-category">Categoria *</label><select id="establishment-category" name="categoria" value={form.categoria} onChange={updateField} required><option value="">Selecione uma categoria</option>{categorias.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div>
+          <div className="form-field form-field-wide"><label htmlFor="establishment-category">Categoria *</label><select id="establishment-category" name="categoria_id" value={form.categoria_id} onChange={updateField} required><option value="">Selecione uma categoria</option>{categorias.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nome}</option>)}</select></div>
           <div className="form-field form-field-wide"><label htmlFor="establishment-description">Descrição</label><textarea id="establishment-description" name="descricao" value={form.descricao} onChange={updateField} placeholder="Conte um pouco sobre o local, seus pratos e sua proposta." rows="4" /></div>
           <div className="form-field"><label htmlFor="establishment-cep">CEP</label><input id="establishment-cep" name="cep" value={form.cep} onChange={updateField} onBlur={handleCepBlur} placeholder="00000-000" inputMode="numeric" maxLength="9" aria-describedby="cep-feedback" /><small id="cep-feedback" className={`cep-feedback ${cepStatus}`} aria-live="polite">{cepLoading ? 'Consultando CEP...' : cepStatus === 'success' ? 'Endereço preenchido automaticamente.' : cepStatus === 'error' ? 'CEP não encontrado ou incompleto.' : 'Preencha para completar o endereço.'}</small></div>
           <div className="form-field"><label htmlFor="establishment-phone">Telefone</label><input id="establishment-phone" name="telefone" value={form.telefone} onChange={updateField} placeholder="(00) 00000-0000" inputMode="tel" maxLength="15" /></div>

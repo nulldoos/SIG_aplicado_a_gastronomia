@@ -1,29 +1,33 @@
 import { useEffect, useState } from 'react'
 import { listarEstabelecimentos } from '../api'
-import { listarEstabelecimentosMock } from '../mockAuth'
 
 function normalizePlace(place, index) {
   return {
     id: place.id,
     nome: place.nome || place.name || 'Estabelecimento sem nome',
-    categoria: place.categoria?.nome || place.categoria || place.category || 'Gastronomia',
+    categoria: place.categoria?.nome || place.categoria || place.category || place.categorias?.split(',')[0]?.trim() || 'Gastronomia',
     descricao: place.descricao || place.description || 'Lugar para conhecer na cidade.',
     endereco: place.endereco || place.address || 'Endereço não informado',
+    latitude: place.latitude ?? null,
+    longitude: place.longitude ?? null,
     tone: ['coral', 'yellow', 'blue', 'green'][index % 4],
   }
 }
 
-export default function ListaEstabelecimentos({ onBack }) {
-  const [locais, setLocais] = useState(() => listarEstabelecimentosMock().filter((local) => local.status === 'APROVADO').map(normalizePlace))
+function mapsUrl(local) {
+  const query = local.latitude != null && local.longitude != null ? `${local.latitude},${local.longitude}` : `${local.nome}, ${local.endereco}`
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
+export default function ListaEstabelecimentos({ onBack, isAuthenticated, isFavorite, onToggleFavorite }) {
+  const [locais, setLocais] = useState([])
   const [loading, setLoading] = useState(true)
-  const [usingMock, setUsingMock] = useState(true)
 
   useEffect(() => {
     let mounted = true
     listarEstabelecimentos().then((estabelecimentos) => {
       if (!mounted || !Array.isArray(estabelecimentos) || estabelecimentos.length === 0) return
       setLocais(estabelecimentos.map(normalizePlace))
-      setUsingMock(false)
     }).catch(() => {}).finally(() => {
       if (mounted) setLoading(false)
     })
@@ -37,16 +41,16 @@ export default function ListaEstabelecimentos({ onBack }) {
       <header className="admin-header">
         <div>
           <p className="eyebrow">EXPLORAÇÃO</p>
-          <h1>Todos os locais</h1>
-          <p>Veja os estabelecimentos aprovados disponíveis para conhecer na cidade.</p>
+          <h1>Estabelecimentos de Corumbá - MS</h1>
+          <p>Veja os estabelecimentos aprovados disponíveis para conhecer em Corumbá.</p>
         </div>
         <span className="admin-badge">{locais.length} locais</span>
       </header>
 
       <section className="admin-content-panel">
-        <div className="admin-panel-heading"><div><p className="eyebrow">LOCAIS APROVADOS</p><h2>Estabelecimentos disponíveis</h2></div><span className="admin-count">{loading ? 'Carregando...' : usingMock ? 'Modo demonstração' : 'API conectada'}</span></div>
+        <div className="admin-panel-heading"><div><p className="eyebrow">LOCAIS APROVADOS</p><h2>Estabelecimentos disponíveis em Corumbá - MS</h2></div><span className="admin-count">{loading ? 'Carregando...' : 'API conectada'}</span></div>
         <div className="all-places-list">
-          {locais.map((local) => <article className="all-place-card" key={local.id}><span className={`place-thumb ${local.tone}`} aria-hidden="true">⌖</span><span className="admin-place-info"><strong>{local.nome}</strong><small>{local.categoria} · {local.endereco}</small><span>{local.descricao}</span></span></article>)}
+          {locais.map((local) => <article className="all-place-card" key={local.id}><span className={`place-thumb ${local.tone}`} aria-hidden="true">⌖</span><span className="admin-place-info"><strong>{local.nome}</strong><small>{local.categoria} · {local.endereco}</small><span>{local.descricao}</span></span>{isAuthenticated && <button className={`favorite-save-button ${isFavorite?.(local.id) ? 'saved' : ''}`} type="button" onClick={() => onToggleFavorite?.(local)} aria-label={`${isFavorite?.(local.id) ? 'Remover' : 'Salvar'} ${local.nome} ${isFavorite?.(local.id) ? 'dos' : 'nos'} favoritos`}>{isFavorite?.(local.id) ? '♥' : '♡'} <span>{isFavorite?.(local.id) ? 'Salvo' : 'Salvar'}</span></button>}<a className="all-place-go" href={mapsUrl(local)} target="_blank" rel="noreferrer">Ir ↗</a></article>)}
         </div>
         {!loading && locais.length === 0 && <div className="empty-state">Nenhum estabelecimento aprovado encontrado.</div>}
         <p className="admin-local-note">Locais pendentes continuam disponíveis apenas na área administrativa até serem aprovados.</p>

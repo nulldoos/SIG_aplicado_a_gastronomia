@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { listarEstabelecimentosMock, listarUsuariosMock } from '../mockAuth'
+import { useEffect, useState } from 'react'
+import { listarEstabelecimentos, listarEstabelecimentosPendentes, listarUsuarios } from '../api'
 
 const tabs = [
   { id: 'overview', label: 'Visão geral' },
@@ -30,10 +30,16 @@ function SummaryCard({ icon, label, value, description }) {
 
 export default function AdminDashboard({ onBack }) {
   const [activeTab, setActiveTab] = useState('overview')
-  const usuarios = listarUsuariosMock()
-  const estabelecimentos = listarEstabelecimentosMock()
-  const pendentes = estabelecimentos.filter((estabelecimento) => estabelecimento.status === 'PENDENTE')
-  const aprovados = estabelecimentos.filter((estabelecimento) => estabelecimento.status === 'APROVADO')
+  const [usuarios, setUsuarios] = useState([])
+  const [pendentes, setPendentes] = useState([])
+  const [aprovados, setAprovados] = useState([])
+  useEffect(() => {
+    Promise.all([listarUsuarios(), listarEstabelecimentosPendentes(), listarEstabelecimentos()]).then(([users, pending, approved]) => {
+      setUsuarios(users)
+      setPendentes(pending)
+      setAprovados(approved)
+    }).catch(() => {})
+  }, [])
 
   return (
     <section className="admin-page">
@@ -55,13 +61,9 @@ export default function AdminDashboard({ onBack }) {
       {activeTab === 'overview' && <>
         <div className="admin-summary-grid">
           <SummaryCard icon="approval" label="Aguardando aprovação" value={pendentes.length} description="novos locais pendentes" />
-          <SummaryCard icon="users" label="Usuários cadastrados" value={usuarios.length} description="contas no mock local" />
+          <SummaryCard icon="users" label="Usuários cadastrados" value={usuarios.length} description="contas cadastradas" />
           <SummaryCard icon="overview" label="Locais publicados" value={aprovados.length} description="estabelecimentos aprovados" />
         </div>
-        <section className="admin-empty-panel">
-          <span className="admin-panel-icon"><AdminIcon type="overview" /></span>
-          <div><h2>Dados do ambiente de teste</h2><p>Os indicadores acima estão sendo atualizados com os usuários e estabelecimentos salvos no mock local.</p></div>
-        </section>
       </>}
 
       {activeTab === 'approval' && <section className="admin-content-panel">
@@ -70,7 +72,7 @@ export default function AdminDashboard({ onBack }) {
       </section>}
 
       {activeTab === 'users' && <section className="admin-content-panel">
-        <div className="admin-panel-heading"><div><p className="eyebrow">CONTAS</p><h2>Usuários cadastrados</h2></div><span className="admin-count">{usuarios.length} no mock</span></div>
+        <div className="admin-panel-heading"><div><p className="eyebrow">CONTAS</p><h2>Usuários cadastrados</h2></div><span className="admin-count">{usuarios.length} cadastrados</span></div>
         <div className="admin-empty-state"><span className="admin-panel-icon"><AdminIcon type="users" /></span><h3>{usuarios.length} usuário(s) disponível(is)</h3><p>Abra a aba de usuários para aplicar filtros por status e perfil.</p></div>
       </section>}
     </section>

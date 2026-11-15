@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { buscarEstabelecimentoPorId, listarCategorias, listarEstabelecimentos, verificarApi } from './api'
+import { adicionarFavorito, atualizarMeuPerfil, buscarEstabelecimentoPorId, clearAuthSession, getAuthToken, getStoredUser, listarCategorias, listarEstabelecimentos, listarFavoritos, removerFavorito, saveAuthSession, verificarApi } from './api'
 import MapPlaceholder from './components/MapPlaceholder'
 import LoginUsuario from './pages/LoginUsuario'
 import RecuperarSenha from './pages/RecuperarSenha'
@@ -7,21 +7,16 @@ import CadastroUsuario from './pages/CadastroUsuario'
 import CadastroEstabelecimento from './pages/CadastroEstabelecimento'
 import AdminDashboard from './pages/AdminDashboard'
 import ListaEstabelecimentos from './pages/ListaEstabelecimentos'
+import Favoritos from './pages/Favoritos'
+import PerfilUsuario from './pages/PerfilUsuario'
+import Configuracoes from './pages/Configuracoes'
 import Aprovacao from './pages/Aprovacao'
 import Solicitacoes from './pages/Solicitacoes'
 import Usuarios from './pages/Usuarios'
-import { limparUsuarioMock, promoverUsuarioMockExistente } from './mockAuth'
 import './App.css'
 import './App.override.css'
 
-const places = [
-  { id: 1, name: 'Sabor da Vila', category: 'Brasileira', description: 'Comida caseira e receitas afetivas', address: 'Rua das Palmeiras, 248', distance: '450 m', rating: '4,8', reviews: 126, tone: 'coral', open: true },
-  { id: 2, name: 'Café Aurora', category: 'Cafeteria', description: 'Café especial, bolos e brunch', address: 'Av. Central, 91', distance: '800 m', rating: '4,6', reviews: 89, tone: 'yellow', open: true },
-  { id: 3, name: 'Brasa Urbana', category: 'Hambúrguer', description: 'Hambúrguer artesanal e cervejas', address: 'Rua do Mercado, 17', distance: '1,2 km', rating: '4,7', reviews: 204, tone: 'blue', open: false },
-  { id: 4, name: 'Verde na Mesa', category: 'Saudável', description: 'Pratos leves, frescos e naturais', address: 'Alameda das Flores, 33', distance: '1,8 km', rating: '4,5', reviews: 67, tone: 'green', open: true },
-]
-
-const categories = ['Todos', 'Brasileira', 'Cafeteria', 'Hambúrguer', 'Saudável']
+const categories = ['Todos']
 
 function normalizePlace(place, index = 0) {
   const category = place.categorias?.split(',')[0]?.trim() || place.categoria?.nome || place.category || 'Gastronomia'
@@ -41,8 +36,33 @@ function normalizePlace(place, index = 0) {
   }
 }
 
+function normalizeFavoritePlace(place) {
+  return {
+    id: String(place.id ?? place.nome ?? place.name),
+    name: place.name || place.nome || 'Estabelecimento sem nome',
+    category: place.category || place.categoria || 'Gastronomia',
+    description: place.description || place.descricao || 'Lugar para conhecer na cidade',
+    address: place.address || place.endereco || 'Endereço não informado',
+    latitude: place.latitude ?? null,
+    longitude: place.longitude ?? null,
+    tone: place.tone || 'coral',
+  }
+}
+
 function normalizeSearchText(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function requestBrowserLocation(onSuccess, onError) {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    onError?.({ code: 0 })
+    return
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => onSuccess?.({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+    (error) => onError?.(error),
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+  )
 }
 
 function Icon({ name, size = 18 }) {
@@ -67,20 +87,70 @@ function Icon({ name, size = 18 }) {
 function App() {
   const [activeNav, setActiveNav] = useState('explorar')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [mockUser, setMockUser] = useState(promoverUsuarioMockExistente)
-  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(promoverUsuarioMockExistente()))
+  const [mockUser, setMockUser] = useState(getStoredUser)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAuthToken() && getStoredUser()))
+  const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem('comemaps:dark-mode') === 'true')
   const [currentView, setCurrentView] = useState('home')
   const [screenMessage, setScreenMessage] = useState('')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todos')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [onlyOpen, setOnlyOpen] = useState(false)
-  const [selectedPlace, setSelectedPlace] = useState(places[0])
-  const [placesData, setPlacesData] = useState(places)
-  const [basePlaces, setBasePlaces] = useState(places)
+  const [selectedPlace, setSelectedPlace] = useState(null)
+  const [placesData, setPlacesData] = useState([])
+  const [basePlaces, setBasePlaces] = useState([])
   const [categoryOptions, setCategoryOptions] = useState(categories)
   const [searchMessage, setSearchMessage] = useState('')
+  const [favoritePlaces, setFavoritePlaces] = useState([])
+  const [userLocation, setUserLocation] = useState(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('comemaps:user-location') || 'null')
+    } catch {
+      return null
+    }
+  })
   const isAdmin = isAuthenticated && mockUser?.tipo === 'ADMIN'
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark-mode', darkMode)
+    window.localStorage.setItem('comemaps:dark-mode', String(darkMode))
+  }, [darkMode])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [currentView])
+
+  useEffect(() => {
+    if (!screenMessage) return undefined
+    const timeout = window.setTimeout(() => setScreenMessage(''), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [screenMessage])
+
+  useEffect(() => {
+    window.localStorage.setItem('comemaps:location', 'true')
+    requestBrowserLocation((location) => {
+      setUserLocation(location)
+      window.localStorage.setItem('comemaps:user-location', JSON.stringify(location))
+    }, () => {
+      setUserLocation(null)
+      window.localStorage.removeItem('comemaps:user-location')
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined
+    }
+    let mounted = true
+    listarFavoritos()
+      .then((items) => {
+        if (mounted) setFavoritePlaces(Array.isArray(items) ? items.map(normalizeFavoritePlace) : [])
+      })
+      .catch(() => {
+        if (mounted) setFavoritePlaces([])
+      })
+    return () => { mounted = false }
+  }, [isAuthenticated, mockUser?.id])
 
   useEffect(() => {
     let mounted = true
@@ -101,14 +171,14 @@ function App() {
   async function handleSearch() {
     const term = query.trim()
     if (!term) {
-      setPlacesData(basePlaces.length ? basePlaces : places)
-      setSelectedPlace(basePlaces[0] || places[0])
+      setPlacesData(basePlaces)
+      setSelectedPlace(basePlaces[0] || null)
       setSearchMessage('')
       return
     }
 
     if (!/^\d+$/.test(term)) {
-      const availablePlaces = basePlaces.length ? basePlaces : places
+      const availablePlaces = basePlaces
       const searchTerm = normalizeSearchText(term)
       const matches = availablePlaces.filter((place) => normalizeSearchText(place.name).includes(searchTerm))
       setPlacesData(matches)
@@ -122,17 +192,16 @@ function App() {
       setSelectedPlace(result)
       setSearchMessage('')
     } catch {
-      const demoResult = places.find((place) => String(place.id) === term)
-      setPlacesData(demoResult ? [demoResult] : [])
-      setSelectedPlace(demoResult || null)
-      setSearchMessage(demoResult ? 'Exemplo visual enquanto o banco não está conectado.' : 'Nenhum estabelecimento aprovado foi encontrado para esse ID.')
+      setPlacesData([])
+      setSelectedPlace(null)
+      setSearchMessage('Nenhum estabelecimento aprovado foi encontrado para esse ID.')
     }
   }
 
   function clearSearch() {
     setQuery('')
-    setPlacesData(basePlaces.length ? basePlaces : places)
-    setSelectedPlace(basePlaces[0] || places[0])
+    setPlacesData(basePlaces)
+    setSelectedPlace(basePlaces[0] || null)
     setSearchMessage('')
   }
 
@@ -147,26 +216,96 @@ function App() {
     setOnlyOpen(false)
   }
 
-  function openView(view, notice = '') {
-    setCurrentView(view)
-    setScreenMessage(notice)
+  function isFavorite(id) {
+    return favoritePlaces.some((place) => String(place.id) === String(id))
   }
 
-  function handleMockLogin(user) {
-    setMockUser(user)
+  async function toggleFavorite(place) {
+    if (!mockUser?.id) {
+      openView('login', 'Entre na conta para salvar seus favoritos.')
+      return
+    }
+    const normalizedPlace = normalizeFavoritePlace(place)
+    const alreadySaved = favoritePlaces.some((item) => String(item.id) === normalizedPlace.id)
+    try {
+      if (alreadySaved) {
+        await removerFavorito(normalizedPlace.id)
+        setFavoritePlaces((current) => current.filter((item) => String(item.id) !== normalizedPlace.id))
+      } else {
+        await adicionarFavorito(normalizedPlace.id)
+        setFavoritePlaces((current) => [...current, normalizedPlace])
+      }
+    } catch (error) {
+      setScreenMessage(error.message || 'Não foi possível atualizar os favoritos.')
+    }
+  }
+
+  function handleLocationPreferenceChange(enabled, onDenied) {
+    window.localStorage.setItem('comemaps:location', String(enabled))
+    if (!enabled) {
+      setUserLocation(null)
+      window.localStorage.removeItem('comemaps:user-location')
+      return
+    }
+    requestBrowserLocation((location) => {
+      setUserLocation(location)
+      window.localStorage.setItem('comemaps:user-location', JSON.stringify(location))
+    }, () => {
+      window.localStorage.setItem('comemaps:location', 'false')
+      setUserLocation(null)
+      window.localStorage.removeItem('comemaps:user-location')
+      onDenied?.()
+    })
+  }
+
+  function handleRequestLocation() {
+    handleLocationPreferenceChange(true)
+  }
+
+  function openView(view, notice = '') {
+    const navByView = {
+      home: 'explorar',
+      places: 'places',
+      favoritos: 'favoritos',
+      cadastroEstabelecimento: 'sugerir',
+      solicitacoes: 'solicitacoes',
+      perfilUsuario: 'perfilUsuario',
+      configuracoes: 'configuracoes',
+      admin: 'admin',
+      aprovacao: 'aprovacao',
+      usuarios: 'usuarios',
+    }
+    setCurrentView(view)
+    setScreenMessage(notice)
+    if (navByView[view]) setActiveNav(navByView[view])
+  }
+
+  function handleMockLogin(session) {
+    saveAuthSession(session)
+    setMockUser(session.usuario)
     setIsAuthenticated(true)
+    setFavoritePlaces([])
+    setActiveNav('explorar')
     openView('home', 'Login realizado com sucesso.')
   }
 
-  function handleMockRegister(user) {
-    setMockUser(user)
+  function handleMockRegister() {
     openView('login', 'Cadastro criado neste navegador. Agora faça login.')
   }
 
+  async function handleMockNameChange(nome) {
+    const response = await atualizarMeuPerfil(nome)
+    if (response?.usuario) {
+      setMockUser(response.usuario)
+      saveAuthSession({ token: getAuthToken(), usuario: response.usuario })
+    }
+  }
+
   function handleMockLogout() {
-    limparUsuarioMock()
+    clearAuthSession()
     setMockUser(null)
     setIsAuthenticated(false)
+    setFavoritePlaces([])
     openView('home', 'Você saiu da conta.')
   }
 
@@ -180,6 +319,14 @@ function App() {
     }
   }
 
+  function renderHomePlace(place) {
+    const saved = isFavorite(place.id)
+    return <div className="place-card-shell" key={place.id}>
+      <button className={`place-card ${selectedPlace?.id === place.id ? 'selected' : ''}`} onClick={() => setSelectedPlace(place)} type="button"><span className={`place-thumb ${place.tone}`}><Icon name="pin" size={22} /></span><span className="place-info"><span className="place-topline"><strong>{place.name}</strong><span className={`status ${place.open ? 'open' : ''}`}>{place.open ? 'Aberto agora' : 'Fechado'}</span></span><span className="place-description">{place.description}</span><span className="place-meta"><span className="rating"><Icon name="star" size={13} /> {place.rating}</span><span>{place.reviews} avaliações</span><span>•</span><span>{place.distance}</span></span></span><Icon name="arrow" size={17} /></button>
+      {isAuthenticated && <button className={`favorite-save-button home-favorite-button ${saved ? 'saved' : ''}`} type="button" onClick={() => toggleFavorite(place)} aria-label={`${saved ? 'Remover' : 'Salvar'} ${place.name} ${saved ? 'dos' : 'nos'} favoritos`}>{saved ? '♥' : '♡'}</button>}
+    </div>
+  }
+
   const plannedPages = {
     login: LoginUsuario,
     recuperarSenha: RecuperarSenha,
@@ -187,6 +334,9 @@ function App() {
     cadastroEstabelecimento: CadastroEstabelecimento,
     admin: AdminDashboard,
     places: ListaEstabelecimentos,
+    favoritos: Favoritos,
+    perfilUsuario: PerfilUsuario,
+    configuracoes: Configuracoes,
     aprovacao: Aprovacao,
     solicitacoes: Solicitacoes,
     usuarios: Usuarios,
@@ -195,27 +345,28 @@ function App() {
   const PlannedPage = plannedPages[currentView]
 
   if (PlannedPage) {
-    const showSidebar = ['cadastroEstabelecimento', 'places'].includes(currentView) || (isAdmin && ['admin', 'aprovacao', 'usuarios'].includes(currentView))
+    const showSidebar = ['cadastroEstabelecimento', 'places'].includes(currentView) || (isAuthenticated && ['favoritos', 'perfilUsuario', 'configuracoes', 'solicitacoes'].includes(currentView)) || (isAdmin && ['admin', 'aprovacao', 'usuarios'].includes(currentView))
     return (
-      <div className={`app-shell ${showSidebar && !sidebarOpen ? 'sidebar-collapsed' : ''}`}>
+      <div className={`app-shell ${showSidebar ? 'with-sidebar' : ''} ${showSidebar && !sidebarOpen ? 'sidebar-collapsed' : ''}`}>
         {showSidebar && <aside className="sidebar">
           <div>
             <div className="brand"><div className="brand-mark"><Icon name="pin" size={24} /></div><div><strong>Comê<span>Maps</span></strong><small>comida perto de você</small></div></div>
             <div className="sidebar-label">NAVEGAÇÃO</div>
             <nav className="nav-list" aria-label="Navegação principal">
               <button className={`nav-item ${activeNav === 'explorar' ? 'active' : ''}`} onClick={() => { setActiveNav('explorar'); openView('home') }} type="button"><Icon name="compass" /><span>Explorar</span></button><button className={`nav-item ${activeNav === 'places' ? 'active' : ''}`} onClick={() => { setActiveNav('places'); openView('places') }} type="button"><Icon name="pin" /><span>Todos os locais</span></button>
-              {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => setActiveNav('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => setActiveNav('sugerir')} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button></>}
+              {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => openView('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => { setActiveNav('sugerir'); openView('cadastroEstabelecimento') }} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button><button className={`nav-item ${activeNav === 'solicitacoes' ? 'active' : ''}`} onClick={() => { setActiveNav('solicitacoes'); openView('solicitacoes') }} type="button"><Icon name="bookmark" /><span>Minhas solicitações</span></button></>}
               {isAdmin && <><div className="sidebar-label admin-sidebar-label">ADMINISTRAÇÃO</div><button className={`nav-item ${activeNav === 'admin' ? 'active' : ''}`} onClick={() => { setActiveNav('admin'); openView('admin') }} type="button"><Icon name="compass" /><span>Visão geral</span></button><button className={`nav-item ${activeNav === 'aprovacao' ? 'active' : ''}`} onClick={() => { setActiveNav('aprovacao'); openView('aprovacao') }} type="button"><Icon name="bookmark" /><span>Aprovar locais</span></button><button className={`nav-item ${activeNav === 'usuarios' ? 'active' : ''}`} onClick={() => { setActiveNav('usuarios'); openView('usuarios') }} type="button"><Icon name="user" /><span>Usuários</span></button></>}
             </nav>
           </div>
           <div className="sidebar-footer">
-            {isAuthenticated ? <button className="profile-card" type="button"><span className="avatar">{mockUser?.nome?.trim().charAt(0).toUpperCase() || 'U'}</span><span><strong>{mockUser?.nome || 'Usuário'}</strong><small>{mockUser?.tipo === 'ADMIN' ? 'Administrador' : 'Minha conta'}</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
-            {isAuthenticated && <><button className="settings-link" type="button"><Icon name="settings" size={16} /> Configurações</button><button className="settings-link" type="button" onClick={handleMockLogout}><Icon name="back" size={16} /> Sair</button></>}
+            <button className="settings-link theme-toggle-link" type="button" onClick={() => setDarkMode((active) => !active)}><span aria-hidden="true">{darkMode ? '☀' : '☾'}</span> {darkMode ? 'Modo claro' : 'Modo noturno'}</button>
+            {isAuthenticated ? <button className={`profile-card ${activeNav === 'perfilUsuario' ? 'active' : ''}`} type="button" onClick={() => openView('perfilUsuario')}><span className="avatar">{mockUser?.nome?.trim().charAt(0).toUpperCase() || 'U'}</span><span><strong>{mockUser?.nome || 'Usuário'}</strong><small>{mockUser?.tipo === 'ADMIN' ? 'Administrador' : 'Minha conta'}</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
+            {isAuthenticated && <><button className="settings-link logout-link" type="button" onClick={handleMockLogout}><Icon name="back" size={16} /> Sair</button><button className={`settings-link ${activeNav === 'configuracoes' ? 'active' : ''}`} type="button" onClick={() => openView('configuracoes')}><Icon name="settings" size={16} /> Configurações</button></>}
           </div>
         </aside>}
         <main className="main-content">
           {showSidebar && <button className="sidebar-toggle" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? 'Recolher menu' : 'Abrir menu'} title={sidebarOpen ? 'Recolher menu' : 'Abrir menu'}><Icon name="menu" size={19} /></button>}
-          <PlannedPage onBack={() => openView('home')} onNavigate={openView} notice={screenMessage} onLogin={handleMockLogin} onRegister={handleMockRegister} />
+          <PlannedPage user={mockUser} darkMode={darkMode} onToggleDarkMode={setDarkMode} onLocationChange={handleLocationPreferenceChange} userLocation={userLocation} onRequestLocation={handleRequestLocation} onNameChange={handleMockNameChange} onBack={() => openView('home')} onNavigate={openView} notice={screenMessage} onLogin={handleMockLogin} onRegister={handleMockRegister} isAuthenticated={isAuthenticated} favoritePlaces={favoritePlaces} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} />
         </main>
       </div>
     )
@@ -240,20 +391,21 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
+    <div className={`app-shell with-sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
       <aside className="sidebar">
         <div>
           <div className="brand"><div className="brand-mark"><Icon name="pin" size={24} /></div><div><strong>Comê<span>Maps</span></strong><small>comida perto de você</small></div></div>
           <div className="sidebar-label">NAVEGAÇÃO</div>
           <nav className="nav-list" aria-label="Navegação principal">
             <button className={`nav-item ${activeNav === 'explorar' ? 'active' : ''}`} onClick={() => setActiveNav('explorar')} type="button"><Icon name="compass" /><span>Explorar</span></button><button className={`nav-item ${activeNav === 'places' ? 'active' : ''}`} onClick={() => { setActiveNav('places'); openView('places') }} type="button"><Icon name="pin" /><span>Todos os locais</span></button>
-            {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => setActiveNav('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => { setActiveNav('sugerir'); openView('cadastroEstabelecimento') }} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button></>}
+            {isAuthenticated && <><button className={`nav-item ${activeNav === 'favoritos' ? 'active' : ''}`} onClick={() => openView('favoritos')} type="button"><Icon name="heart" /><span>Favoritos</span></button><button className={`nav-item ${activeNav === 'sugerir' ? 'active' : ''}`} onClick={() => { setActiveNav('sugerir'); openView('cadastroEstabelecimento') }} type="button"><Icon name="bookmark" /><span>Sugerir lugar</span></button><button className={`nav-item ${activeNav === 'solicitacoes' ? 'active' : ''}`} onClick={() => { setActiveNav('solicitacoes'); openView('solicitacoes') }} type="button"><Icon name="bookmark" /><span>Minhas solicitações</span></button></>}
             {isAdmin && <><div className="sidebar-label admin-sidebar-label">ADMINISTRAÇÃO</div><button className={`nav-item ${activeNav === 'admin' ? 'active' : ''}`} onClick={() => { setActiveNav('admin'); openView('admin') }} type="button"><Icon name="compass" /><span>Visão geral</span></button><button className={`nav-item ${activeNav === 'aprovacao' ? 'active' : ''}`} onClick={() => { setActiveNav('aprovacao'); openView('aprovacao') }} type="button"><Icon name="bookmark" /><span>Aprovar locais</span></button><button className={`nav-item ${activeNav === 'usuarios' ? 'active' : ''}`} onClick={() => { setActiveNav('usuarios'); openView('usuarios') }} type="button"><Icon name="user" /><span>Usuários</span></button></>}
           </nav>
         </div>
         <div className="sidebar-footer">
-          {isAuthenticated ? <button className="profile-card" type="button" onClick={isAdmin ? () => { setActiveNav('admin'); openView('admin') } : undefined}><span className="avatar">{mockUser?.nome?.trim().charAt(0).toUpperCase() || 'U'}</span><span><strong>{mockUser?.nome || 'Usuário'}</strong><small>{mockUser?.tipo === 'ADMIN' ? 'Administrador' : 'Minha conta'}</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
-          {isAuthenticated && <><button className="settings-link" type="button"><Icon name="settings" size={16} /> Configurações</button><button className="settings-link" type="button" onClick={handleMockLogout}><Icon name="back" size={16} /> Sair</button></>}
+          <button className="settings-link theme-toggle-link" type="button" onClick={() => setDarkMode((active) => !active)}><span aria-hidden="true">{darkMode ? '☀' : '☾'}</span> {darkMode ? 'Modo claro' : 'Modo noturno'}</button>
+          {isAuthenticated ? <button className={`profile-card ${activeNav === 'perfilUsuario' ? 'active' : ''}`} type="button" onClick={() => openView('perfilUsuario')}><span className="avatar">{mockUser?.nome?.trim().charAt(0).toUpperCase() || 'U'}</span><span><strong>{mockUser?.nome || 'Usuário'}</strong><small>{mockUser?.tipo === 'ADMIN' ? 'Administrador' : 'Minha conta'}</small></span><Icon name="arrow" size={15} /></button> : <button className="login-card" type="button" onClick={() => openView('login')}><Icon name="user" size={17} /><span><strong>Entrar</strong><small>Acesse sua conta</small></span><Icon name="arrow" size={15} /></button>}
+          {isAuthenticated && <><button className="settings-link logout-link" type="button" onClick={handleMockLogout}><Icon name="back" size={16} /> Sair</button><button className={`settings-link ${activeNav === 'configuracoes' ? 'active' : ''}`} type="button" onClick={() => openView('configuracoes')}><Icon name="settings" size={16} /> Configurações</button></>}
         </div>
       </aside>
 
@@ -272,12 +424,12 @@ function App() {
         <section className="content-grid">
           <div className="results-column">
             <div className="section-heading"><div><p className="eyebrow">PERTO DE VOCÊ</p><h2>{filteredPlaces.length} lugares para conhecer</h2></div><button className="sort-button" type="button">Mais relevantes <span>⌄</span></button></div>
-            <div className="place-list">{filteredPlaces.length > 0 ? filteredPlaces.map((place) => <button key={place.id} className={`place-card ${selectedPlace?.id === place.id ? 'selected' : ''}`} onClick={() => setSelectedPlace(place)} type="button"><span className={`place-thumb ${place.tone}`}><Icon name="pin" size={22} /></span><span className="place-info"><span className="place-topline"><strong>{place.name}</strong><span className={`status ${place.open ? 'open' : ''}`}>{place.open ? 'Aberto agora' : 'Fechado'}</span></span><span className="place-description">{place.description}</span><span className="place-meta"><span className="rating"><Icon name="star" size={13} /> {place.rating}</span><span>{place.reviews} avaliações</span><span>•</span><span>{place.distance}</span></span></span><Icon name="arrow" size={17} /></button>) : <div className="empty-state">Nenhum estabelecimento aprovado encontrado.</div>}</div>
-            <button className="outline-button" type="button" onClick={() => openView('places')}>Ver todos os lugares <Icon name="arrow" size={16} /></button>
+            <div className="place-list">{filteredPlaces.length > 0 ? filteredPlaces.map(renderHomePlace) : <div className="empty-state">Nenhum estabelecimento aprovado encontrado.</div>}</div>
+            <button className="outline-button" type="button" onClick={() => { setActiveNav('places'); openView('places') }}>Ver todos os lugares <Icon name="arrow" size={16} /></button>
           </div>
 
           <div className="map-column">
-            <div className="map-header"><div><p className="eyebrow">VISÃO GERAL</p><h2>Mapa da região</h2></div><button className="map-control" type="button"><Icon name="compass" size={16} /> Minha localização</button></div>
+            <div className="map-header"><div><p className="eyebrow">VISÃO GERAL</p><h2>Mapa da região</h2></div><button className="map-control" type="button" onClick={handleRequestLocation}><Icon name="compass" size={16} /> {userLocation ? 'Localização atualizada' : 'Minha localização'}</button></div>
             <MapPlaceholder selectedPlace={selectedPlace} places={filteredPlaces} />
           </div>
         </section>

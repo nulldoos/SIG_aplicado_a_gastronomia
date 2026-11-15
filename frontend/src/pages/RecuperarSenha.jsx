@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { recuperarSenha } from '../api'
 
 function RecoveryPinIcon() {
   return (
@@ -12,14 +13,25 @@ function RecoveryPinIcon() {
 export default function RecuperarSenha({ onBack, onNavigate }) {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    if (onNavigate) {
-      onNavigate('login', 'Recuperação enviada para o e-mail informado.')
-      return
+    setLoading(true)
+    try {
+      const response = await recuperarSenha(email)
+      const notice = response?.mensagem || 'Recuperação enviada'
+      if (onNavigate) onNavigate('login', notice)
+      else setMessage(notice)
+    } catch (error) {
+      if (error.status === 404) {
+        onNavigate?.('login', 'Recuperação enviada')
+      } else {
+        setMessage(error.message || 'Não foi possível solicitar a recuperação.')
+      }
+    } finally {
+      setLoading(false)
     }
-    setMessage('Recuperação enviada para o e-mail informado.')
   }
 
   return (
@@ -42,7 +54,7 @@ export default function RecuperarSenha({ onBack, onNavigate }) {
           <form className="login-form" onSubmit={handleSubmit}>
             <label htmlFor="recovery-email">E-mail</label>
             <input id="recovery-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} onBlur={(event) => event.currentTarget.reportValidity()} placeholder="voce@exemplo.com" autoComplete="email" required />
-            <button className="login-submit" type="submit">Enviar instruções</button>
+            <button className="login-submit" type="submit" disabled={loading}>{loading ? 'Enviando...' : 'Enviar instruções'}</button>
           </form>
 
           {message && <p className="login-feedback" role="status">{message}</p>}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cadastrarUsuarioMock } from '../mockAuth'
+import { cadastrarUsuario } from '../api'
 
 function CadastroPinIcon() {
   return (
@@ -27,6 +27,7 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [confirmationTouched, setConfirmationTouched] = useState(false)
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const passwordRules = [
     { label: 'Pelo menos 8 caracteres', valid: password.length >= 8 },
@@ -39,7 +40,7 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
   const passwordsMatch = password === passwordConfirmation
   const showPasswordMatchFeedback = confirmationTouched && passwordConfirmation.length > 0
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     if (!passwordIsValid) {
       setMessage('A senha ainda não atende a todos os requisitos.')
@@ -49,12 +50,16 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
       setMessage('As senhas precisam ser iguais.')
       return
     }
-    const result = cadastrarUsuarioMock({ nome: name, email, senha: password })
-    if (!result.ok) {
-      setMessage(result.message)
-      return
+    setLoading(true)
+    setMessage('')
+    try {
+      const result = await cadastrarUsuario({ nome: name, email, senha: password })
+      onRegister?.(result.usuario)
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível criar a conta.')
+    } finally {
+      setLoading(false)
     }
-    onRegister?.(result.user)
   }
 
   return (
@@ -97,7 +102,7 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
             </div>
             {showPasswordMatchFeedback && !passwordsMatch && <p id="password-match-feedback" className="password-match-feedback error" role="status">As senhas precisam ser iguais.</p>}
 
-            <button className="login-submit" type="submit">Criar conta</button>
+            <button className="login-submit" type="submit" disabled={loading}>{loading ? 'Criando...' : 'Criar conta'}</button>
           </form>
 
           {message && <p className={`login-feedback ${message.includes('iguais') ? 'login-feedback-error' : ''}`} role="status">{message}</p>}

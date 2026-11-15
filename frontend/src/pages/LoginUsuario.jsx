@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { loginMock } from '../mockAuth'
+import { useEffect, useState } from 'react'
+import { loginUsuario } from '../api'
 
 function LoginPinIcon() {
   return (
@@ -23,15 +23,26 @@ export default function LoginUsuario({ onBack, onNavigate, notice, onLogin }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(event) {
+  useEffect(() => {
+    if (!message) return undefined
+    const timeout = window.setTimeout(() => setMessage(''), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [message])
+
+  async function handleSubmit(event) {
     event.preventDefault()
-    const result = loginMock(email, password)
-    if (!result.ok) {
-      setMessage(result.message)
-      return
+    setLoading(true)
+    setMessage('')
+    try {
+      const result = await loginUsuario(email, password)
+      onLogin?.(result)
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível realizar o login.')
+    } finally {
+      setLoading(false)
     }
-    onLogin?.(result.user)
   }
 
   return (
@@ -64,7 +75,7 @@ export default function LoginUsuario({ onBack, onNavigate, notice, onLogin }) {
             </div>
 
             <label className="remember-option"><input type="checkbox" /> <span>Lembrar de mim</span></label>
-            <button className="login-submit" type="submit">Entrar</button>
+            <button className="login-submit" type="submit" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button>
           </form>
 
           <p className="login-register">Ainda não tem uma conta? <button type="button" onClick={() => onNavigate?.('cadastroUsuario')}>Criar cadastro</button></p>
