@@ -160,7 +160,7 @@ function App() {
   const PlannedPage = plannedPages[currentView]
 
   if (PlannedPage) {
-    return <div className="app-shell"><main className="main-content"><PlannedPage onBack={() => openView('home')} /></main></div>
+    return <div className="app-shell"><main className="main-content"><PlannedPage onBack={() => openView('home')} onNavigate={openView} /></main></div>
   }
 
   if (currentView === 'places') {

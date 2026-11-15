@@ -17,7 +17,7 @@ function EyeIcon({ hidden = false }) {
   )
 }
 
-export default function LoginUsuario({ onBack }) {
+export default function LoginUsuario({ onBack, onNavigate }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -60,7 +60,7 @@ export default function LoginUsuario({ onBack }) {
           </form>
 
           {message && <p className="login-feedback" role="status">{message}</p>}
-          <p className="login-register">Ainda não tem uma conta? <button type="button" onClick={() => setMessage('A tela de cadastro será conectada aqui.')}>Criar cadastro</button></p>
+          <p className="login-register">Ainda não tem uma conta? <button type="button" onClick={() => onNavigate?.('cadastroUsuario')}>Criar cadastro</button></p>
         </div>
       </div>
     </section>
