@@ -6,7 +6,6 @@ const usuarioModel = require("../models/usuarioModel");
 const recuperacaoSenhaModel = require("../models/recSenhaModel");
 const emailService = require("../services/emailService");
 
-// Solicitar recuperação de senha
 async function solicitarRecuperacao(req, res) {
     try {
         const { email } = req.body || {};
@@ -20,23 +19,19 @@ async function solicitarRecuperacao(req, res) {
         const emailNormalizado = email.trim().toLowerCase();
         const usuario = await usuarioModel.buscarPorEmail(emailNormalizado);
 
-        // Resposta genérica para não revelar se a conta existe
         if (!usuario || !usuario.ativo) {
             return res.status(200).json({
                 mensagem: "Se o e-mail estiver cadastrado, você receberá as instruções de recuperação."
             });
         }
 
-        // Gerar token aleatório
         const token = crypto.randomBytes(32).toString("hex");
 
-        // Armazenar somente o hash do token
         const tokenHash = crypto
             .createHash("sha256")
             .update(token)
             .digest("hex");
 
-        // Validade de 30 minutos
         const expiraEm = new Date(Date.now() + 30 * 60 * 1000);
 
         await recuperacaoSenhaModel.salvarToken(
@@ -89,17 +84,13 @@ async function redefinirSenha(req, res) {
             });
         }
 
-        // Gerar hash do token recebido
         const tokenHash = crypto
             .createHash("sha256")
             .update(token)
             .digest("hex");
 
-        // Gerar hash da nova senha
         const senhaHash = await bcrypt.hash(novaSenha, 10);
 
-        // Validar token, atualizar senha e invalidar token
-        // Tudo dentro de uma única transação
         const atualizado = await recuperacaoSenhaModel.redefinirSenhaComToken(
             tokenHash,
             senhaHash
