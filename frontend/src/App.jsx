@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buscarEstabelecimentoPorId, listarCategorias, listarEstabelecimentos, verificarApi } from './api'
 import MapPlaceholder from './components/MapPlaceholder'
-import LoginUsuarioPage from './pages/LoginUsuarioPage'
-import CadastroUsuarioPage from './pages/CadastroUsuarioPage'
-import CadastroEstabelecimentoPage from './pages/CadastroEstabelecimentoPage'
-import AprovacaoPage from './pages/AprovacaoPage'
-import SolicitacoesPage from './pages/SolicitacoesPage'
-import UsuariosPage from './pages/UsuariosPage'
+import LoginUsuario from './pages/LoginUsuario'
+import CadastroUsuario from './pages/CadastroUsuario'
+import CadastroEstabelecimento from './pages/CadastroEstabelecimento'
+import Aprovacao from './pages/Aprovacao'
+import Solicitacoes from './pages/Solicitacoes'
+import Usuarios from './pages/Usuarios'
 import './App.css'
 import './App.override.css'
 
@@ -149,12 +149,12 @@ function App() {
   }
 
   const plannedPages = {
-    login: LoginUsuarioPage,
-    cadastroUsuario: CadastroUsuarioPage,
-    cadastroEstabelecimento: CadastroEstabelecimentoPage,
-    aprovacao: AprovacaoPage,
-    solicitacoes: SolicitacoesPage,
-    usuarios: UsuariosPage,
+    login: LoginUsuario,
+    cadastroUsuario: CadastroUsuario,
+    cadastroEstabelecimento: CadastroEstabelecimento,
+    aprovacao: Aprovacao,
+    solicitacoes: Solicitacoes,
+    usuarios: Usuarios,
   }
 
   const PlannedPage = plannedPages[currentView]

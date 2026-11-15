@@ -1,4 +1,4 @@
-export default function PlaceholderPage({ eyebrow, title, description, role, onBack }) {
+export default function Placeholder({ eyebrow, title, description, role, onBack }) {
   return (
     <section className="planned-page">
       <button className="back-button" type="button" onClick={onBack}>← Voltar</button>
