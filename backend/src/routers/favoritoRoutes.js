@@ -15,4 +15,8 @@ router.delete("/:estabelecimentoId", favoritoController.removerFavorito);
 
 router.get("/verificar/:estabelecimentoId", favoritoController.verificarFavorito);
 
+router.delete("/google/:googlePlaceId", favoritoController.removerFavoritoGoogle);
+
+router.get("/verificar/google/:googlePlaceId", favoritoController.verificarFavoritoGoogle);
+
 module.exports = router;
