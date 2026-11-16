@@ -4,6 +4,9 @@ export default function SolicitacaoEstabelecimento({ estabelecimento, onBack, on
   const mapPlace = {
     name: estabelecimento.nome,
     category: estabelecimento.categoria,
+    address: estabelecimento.endereco,
+    latitude: Number(estabelecimento.latitude),
+    longitude: Number(estabelecimento.longitude),
     distance: 'local enviado',
     tone: 'coral',
   }
