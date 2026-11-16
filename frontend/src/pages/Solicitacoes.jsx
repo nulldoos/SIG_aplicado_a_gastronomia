@@ -13,6 +13,7 @@ export default function Solicitacoes({ onBack, user }) {
   const [editingRequest, setEditingRequest] = useState(null)
   const [feedback, setFeedback] = useState('')
   const [solicitacoes, setSolicitacoes] = useState([])
+  const isAdmin = user?.tipo === 'ADMIN'
 
   useEffect(() => {
     listarMinhasSolicitacoes()
@@ -31,6 +32,7 @@ export default function Solicitacoes({ onBack, user }) {
   }, [feedback])
 
   function beginEdit(solicitacao) {
+    if (!isAdmin) return
     setEditingRequest(solicitacao)
     setFeedback('')
   }
@@ -52,8 +54,7 @@ export default function Solicitacoes({ onBack, user }) {
     setFeedback('Solicitação excluída.')
   }
 
-  if (editingRequest) return <EditarEstabelecimento estabelecimento={editingRequest} onBack={() => setEditingRequest(null)} onSave={saveEdit} onDelete={editingRequest.status === 'RECUSADO' ? deleteRequest : undefined} deleteLabel="Excluir solicitação" />
-
+if (isAdmin && editingRequest) return <EditarEstabelecimento estabelecimento={editingRequest} onBack={() => setEditingRequest(null)} onSave={saveEdit} onDelete={editingRequest.status === 'RECUSADO' ? deleteRequest : undefined} deleteLabel="Excluir solicitação" />
   return (
     <section className="requests-page">
       {feedback && <div className="login-toast" role="status"><span className="login-toast-icon" aria-hidden="true">✓</span><span>{feedback}</span></div>}
@@ -96,7 +97,9 @@ export default function Solicitacoes({ onBack, user }) {
                   <span className={`request-user-status ${status.className}`}>{status.label}</span>
                   <div className="request-user-actions">
                     <button className="request-user-details" type="button" onClick={() => setExpandedId(expanded ? null : solicitacao.id)}>{expanded ? 'Ocultar' : 'Ver detalhes'}</button>
-                    <button className="request-user-details" type="button" onClick={() => beginEdit(solicitacao)}>Editar</button>
+                    {isAdmin && (
+                      <button className="request-user-details" type="button" onClick={() => beginEdit(solicitacao)}>Editar</button>
+                    )}
                   </div>
                   {expanded && <div className="request-user-detail-panel">
                     <dl className="request-user-detail-grid">
