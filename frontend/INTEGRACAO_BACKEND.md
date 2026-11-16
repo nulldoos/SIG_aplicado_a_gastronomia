@@ -50,7 +50,8 @@ Estas funções já estão centralizadas em `frontend/src/api.js`, mas ainda nã
 
 | Método | Rota | Função da tela |
 | --- | --- | --- |
-| `POST` | `/usuarios/recuperar-senha` | enviar recuperação de senha |
+| `POST` | `/recuperacao-senha/solicitar` | enviar recuperação de senha |
+| `POST` | `/recuperacao-senha/redefinir` | trocar a senha usando o token do e-mail |
 | `PATCH` | `/usuarios/me` | editar nome do usuário logado |
 | `GET` | `/estabelecimentos/admin` | listar todos os locais para a aprovação |
 | `GET` | `/estabelecimentos/minhas` | listar solicitações do usuário logado |
@@ -59,6 +60,12 @@ Estas funções já estão centralizadas em `frontend/src/api.js`, mas ainda nã
 | `DELETE` | `/favoritos/:estabelecimentoId` | remover favorito |
 
 As respostas de listagem devem ser arrays. Erros devem preferencialmente seguir o formato:
+
+O endpoint `/recuperacao-senha/redefinir` recebe:
+
+```json
+{ "token": "token-do-email", "novaSenha": "NovaSenha123!" }
+```
 
 ```json
 { "mensagem": "Descrição do erro" }

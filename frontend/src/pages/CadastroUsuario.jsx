@@ -42,6 +42,14 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    if (!name.trim() || !email.trim() || !password || !passwordConfirmation) {
+      setMessage('Preencha todos os campos obrigatórios.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setMessage('Informe um e-mail válido.')
+      return
+    }
     if (!passwordIsValid) {
       setMessage('A senha ainda não atende a todos os requisitos.')
       return
@@ -79,12 +87,12 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
           <h2>Criar sua conta</h2>
           <p className="login-card-description">Preencha seus dados para começar a explorar.</p>
 
-          <form className="login-form" onSubmit={handleSubmit}>
+          <form className="login-form" onSubmit={handleSubmit} noValidate>
             <label htmlFor="register-name">Nome</label>
             <input id="register-name" type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Como podemos chamar você?" autoComplete="name" required />
 
             <label htmlFor="register-email">E-mail</label>
-            <input id="register-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} onBlur={(event) => event.currentTarget.reportValidity()} placeholder="voce@exemplo.com" autoComplete="email" required />
+            <input id="register-email" type="email" value={email} onChange={(event) => { setEmail(event.target.value); setMessage('') }} placeholder="voce@exemplo.com" autoComplete="email" required />
 
             <label htmlFor="register-password">Senha</label>
             <div className="password-field">
@@ -105,7 +113,7 @@ export default function CadastroUsuario({ onBack, onNavigate, onRegister }) {
             <button className="login-submit" type="submit" disabled={loading}>{loading ? 'Criando...' : 'Criar conta'}</button>
           </form>
 
-          {message && <p className={`login-feedback ${message.includes('iguais') ? 'login-feedback-error' : ''}`} role="status">{message}</p>}
+          {message && <p className="login-feedback login-feedback-error" role="alert">{message}</p>}
           <p className="login-register">Já tem uma conta? <button type="button" onClick={() => onNavigate?.('login')}>Entrar</button></p>
         </div>
       </div>

@@ -7,7 +7,14 @@ async function request(path, options = {}) {
   if (options.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const token = window.localStorage.getItem(AUTH_TOKEN_KEY)
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  let response
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  } catch (error) {
+    const networkError = new Error('Não foi possível conectar à API. Verifique se o backend está rodando.', { cause: error })
+    networkError.code = 'NETWORK_ERROR'
+    throw networkError
+  }
   const type = response.headers.get('content-type') || ''
   const data = type.includes('application/json') ? await response.json() : null
   if (!response.ok) {

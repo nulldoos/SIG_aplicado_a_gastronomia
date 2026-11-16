@@ -3,6 +3,7 @@ import { adicionarFavorito, atualizarMeuPerfil, buscarEstabelecimentoPorId, clea
 import MapPlaceholder from './components/MapPlaceholder'
 import LoginUsuario from './pages/LoginUsuario'
 import RecuperarSenha from './pages/RecuperarSenha'
+import TrocaSenha from './pages/TrocaSenha'
 import CadastroUsuario from './pages/CadastroUsuario'
 import CadastroEstabelecimento from './pages/CadastroEstabelecimento'
 import AdminDashboard from './pages/AdminDashboard'
@@ -102,7 +103,15 @@ function App() {
   const [mockUser, setMockUser] = useState(getStoredUser)
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAuthToken() && getStoredUser()))
   const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem('comemaps:dark-mode') === 'true')
-  const [currentView, setCurrentView] = useState('home')
+  const [resetToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    return params.get('token') || params.get('reset_token') || hashParams.get('token') || ''
+  })
+  const [currentView, setCurrentView] = useState(() => {
+    const resetPath = /redefinir-senha|troca-senha|reset-password/.test(window.location.pathname)
+    return resetPath || resetToken ? 'trocaSenha' : 'home'
+  })
   const [screenMessage, setScreenMessage] = useState('')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todos')
@@ -480,6 +489,7 @@ function App() {
   const plannedPages = {
     login: LoginUsuario,
     recuperarSenha: RecuperarSenha,
+    trocaSenha: TrocaSenha,
     cadastroUsuario: CadastroUsuario,
     cadastroEstabelecimento: CadastroEstabelecimento,
     admin: AdminDashboard,
@@ -516,7 +526,7 @@ function App() {
         </aside>}
         <main className="main-content">
           {showSidebar && <button className="sidebar-toggle" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? 'Recolher menu' : 'Abrir menu'} title={sidebarOpen ? 'Recolher menu' : 'Abrir menu'}><Icon name="menu" size={19} /></button>}
-          <PlannedPage user={mockUser} darkMode={darkMode} onToggleDarkMode={setDarkMode} onLocationChange={handleLocationPreferenceChange} userLocation={userLocation} onRequestLocation={handleRequestLocation} onNameChange={handleMockNameChange} onBack={() => openView('home')} onNavigate={openView} notice={screenMessage} onLogin={handleMockLogin} onRegister={handleMockRegister} isAuthenticated={isAuthenticated} favoritePlaces={favoritePlaces} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} />
+          <PlannedPage user={mockUser} resetToken={resetToken} darkMode={darkMode} onToggleDarkMode={setDarkMode} onLocationChange={handleLocationPreferenceChange} userLocation={userLocation} onRequestLocation={handleRequestLocation} onNameChange={handleMockNameChange} onBack={() => openView('home')} onNavigate={openView} notice={screenMessage} onLogin={handleMockLogin} onRegister={handleMockRegister} isAuthenticated={isAuthenticated} favoritePlaces={favoritePlaces} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} />
         </main>
       </div>
     )
