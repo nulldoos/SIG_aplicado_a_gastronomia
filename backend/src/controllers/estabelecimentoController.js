@@ -412,6 +412,33 @@ async function buscarEstabelecimento(req, res) {
     }
 }
 
+async function listarEstabelecimentosAdmin(req, res) {
+    try {
+        const estabelecimentos = await estabelecimentoModel.listarTodos();
+
+        return res.status(200).json(estabelecimentos);
+    } catch (erro) {
+        return res.status(500).json({
+            mensagem: "Erro ao listar estabelecimentos."
+        });
+    }
+}
+
+async function listarMeusEstabelecimentos(req, res) {
+    try {
+        const usuarioId = req.usuario.id;
+
+        const estabelecimentos =
+            await estabelecimentoModel.listarPorUsuario(usuarioId);
+
+        return res.status(200).json(estabelecimentos);
+    } catch (erro) {
+        return res.status(500).json({
+            mensagem: "Erro ao listar seus estabelecimentos."
+        });
+    }
+}
+
 module.exports = {
     listarEstabelecimentos,
     cadastrarEstabelecimento,
@@ -419,5 +446,7 @@ module.exports = {
     excluirEstabelecimento,
     listarEstabelecimentosPendentes,
     atualizarStatusEstabelecimento,
-    buscarEstabelecimento
+    buscarEstabelecimento,
+    listarEstabelecimentosAdmin,
+    listarMeusEstabelecimentos
 };

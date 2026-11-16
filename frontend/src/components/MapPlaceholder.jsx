@@ -1,17 +1,83 @@
 
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
+import { useEffect, useRef } from 'react'
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Popup,
+  useMap,
+} from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
-export default function MapPlaceholder({ selectedPlace, places = [] }) {
-  console.log('Estabelecimentos recebidos no mapa:', places)
+// Controla o movimento do mapa e a abertura do popup
+function MapController({ selectedPlace, markerRefs }) {
+  const map = useMap()
 
-  const placesWithCoordinates = places.filter(
-    (place) =>
-      place.latitude !== null &&
-      place.longitude !== null &&
-      Number.isFinite(place.latitude) &&
-      Number.isFinite(place.longitude)
-  )
+  useEffect(() => {
+    if (!selectedPlace) return
+
+    const marker = markerRefs.current[String(selectedPlace.id)]
+
+    if (!marker) return
+
+    const latitude = Number(selectedPlace.latitude)
+    const longitude = Number(selectedPlace.longitude)
+
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return
+    }
+
+    // Centraliza o mapa no estabelecimento selecionado
+    map.flyTo(
+      [latitude, longitude],
+      16,
+      {
+        animate: true,
+        duration: 1,
+      }
+    )
+
+    // Abre o popup do marcador
+    marker.openPopup()
+
+  }, [selectedPlace, map, markerRefs])
+
+  return null
+}
+
+export default function MapPlaceholder({
+  selectedPlace,
+  places = [],
+  onSelectPlace,
+  
+}) {
+  const markerRefs = useRef({})
+
+  // Normaliza os dados recebidos do ComêMaps e do Google
+  const placesWithCoordinates = places
+    .filter(
+      (place) =>
+        place.latitude != null &&
+        place.longitude != null &&
+        place.latitude !== '' &&
+        place.longitude !== ''
+    )
+    .map((place) => ({
+      ...place,
+      latitude: Number(place.latitude),
+      longitude: Number(place.longitude),
+      name: place.name || place.nome || 'Estabelecimento sem nome',
+      category: place.category || place.categoria || 'Gastronomia',
+      address: place.address || place.endereco || 'Endereço não informado',
+    }))
+    .filter(
+      (place) =>
+        Number.isFinite(place.latitude) &&
+        Number.isFinite(place.longitude)
+    )
 
   const initialCenter = placesWithCoordinates.length > 0
     ? [
@@ -28,22 +94,45 @@ export default function MapPlaceholder({ selectedPlace, places = [] }) {
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
       >
+        <MapController
+          selectedPlace={selectedPlace}
+          markerRefs={markerRefs}
+        />
+
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         {placesWithCoordinates.map((place) => {
-          const isSelected = selectedPlace?.id === place.id
+          const isSelected =
+            String(selectedPlace?.id) === String(place.id)
 
           return (
             <CircleMarker
-              key={place.id}
-              center={[place.latitude, place.longitude]}
-              radius={isSelected ? 11 : 8}
+              ref={(marker) => {
+                const id = String(place.id)
+
+                if (marker) {
+                  markerRefs.current[id] = marker
+                } else {
+                  delete markerRefs.current[id]
+                }
+              }}
+              key={`${place.fonte || 'local'}-${place.id}`}
+              eventHandlers={{
+                click: () => {
+                  onSelectPlace?.(place)
+                },
+              }}
+              center={[
+                place.latitude,
+                place.longitude,
+              ]}
+              radius={isSelected ? 12 : 8}
               pathOptions={{
-                color: '#f97316',
-                fillColor: '#f97316',
+                color: isSelected ? '#7e22ce' : '#f97316',
+                fillColor: isSelected ? '#7e22ce' : '#f97316',
                 fillOpacity: isSelected ? 1 : 0.85,
                 weight: isSelected ? 4 : 2,
               }}

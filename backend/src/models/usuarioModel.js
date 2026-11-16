@@ -87,17 +87,15 @@ async function atualizarSenha(id, senhaHash) {
     return resultado.affectedRows > 0;
 }
 
-async function atualizarDados(id, dados) {
-    const { nome, email } = dados;
-
-    await conexao.query(
+async function atualizarDados(id, nome) {
+    const [resultado] = await conexao.query(
         `UPDATE usuarios
-         SET nome = ?, email = ?
+         SET nome = ?
          WHERE id = ?`,
-        [nome, email, id]
+        [nome, id]
     );
 
-    return true;
+    return resultado.affectedRows > 0;
 }
 
 module.exports = {

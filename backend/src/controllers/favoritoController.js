@@ -22,7 +22,7 @@ async function listarFavoritos(req, res) {
 async function adicionarFavorito(req, res) {
     try {
         const usuarioId = req.usuario.id;
-        const estabelecimentoId = Number(req.params.estabelecimentoId);
+        const estabelecimentoId = Number(req.body.estabelecimento_id);
 
         if (!Number.isInteger(estabelecimentoId) || estabelecimentoId <= 0) {
             return res.status(400).json({

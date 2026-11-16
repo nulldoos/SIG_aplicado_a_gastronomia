@@ -9,7 +9,7 @@ router.use(autenticarUsuario);
 
 router.get("/", favoritoController.listarFavoritos);
 
-router.post("/:estabelecimentoId", favoritoController.adicionarFavorito);
+router.post("/", favoritoController.adicionarFavorito);
 
 router.delete("/:estabelecimentoId", favoritoController.removerFavorito);
 

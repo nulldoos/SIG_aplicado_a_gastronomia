@@ -35,10 +35,10 @@ router.patch(
 );
 
 // atualizar dados do usuário
-router.put(
-    "/:id",
+router.patch(
+    "/me",
     autenticarUsuario,
-    usuarioController.atualizarUsuario
+    usuarioController.atualizarMeuPerfil
 );
 
 module.exports = router;

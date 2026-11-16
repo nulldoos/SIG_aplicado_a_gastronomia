@@ -208,8 +208,10 @@ function App() {
     }
   }, [])
 
+
   async function handleSearch() {
     const term = query.trim()
+
     if (!term) {
       setPlacesData(basePlaces)
       setSelectedPlace(basePlaces[0] || null)
@@ -217,26 +219,63 @@ function App() {
       return
     }
 
-    if (!/^\d+$/.test(term)) {
-      const availablePlaces = basePlaces
-      const searchTerm = normalizeSearchText(term)
-      const matches = availablePlaces.filter((place) => normalizeSearchText(place.name).includes(searchTerm))
-      setPlacesData(matches)
-      setSelectedPlace(matches[0] || null)
-      setSearchMessage(matches.length ? '' : 'Nenhum estabelecimento encontrado para esse nome.')
+    const searchTerm = normalizeSearchText(term)
+
+    // Pesquisa por ID numérico no banco do ComêMaps
+    if (/^\d+$/.test(term)) {
+      try {
+        const result = normalizePlace(
+          await buscarEstabelecimentoPorId(term)
+        )
+
+        setPlacesData([result])
+        setSelectedPlace(result)
+        setSearchMessage('')
+      } catch {
+        setPlacesData([])
+        setSelectedPlace(null)
+        setSearchMessage(
+          'Nenhum estabelecimento aprovado foi encontrado para esse ID.'
+        )
+      }
+
       return
     }
-    try {
-      const result = normalizePlace(await buscarEstabelecimentoPorId(term))
-      setPlacesData([result])
-      setSelectedPlace(result)
-      setSearchMessage('')
-    } catch {
-      setPlacesData([])
-      setSelectedPlace(null)
-      setSearchMessage('Nenhum estabelecimento aprovado foi encontrado para esse ID.')
-    }
+
+    // Pesquisa por nome, categoria ou endereço nas duas fontes
+    const googlePlacesForSearch = googlePlacesForMap.map((place, index) => ({
+      ...place,
+      description: 'Estabelecimento encontrado pelo Google Places',
+      distance: 'perto de você',
+      rating: '—',
+      reviews: 0,
+      tone: ['coral', 'yellow', 'blue', 'green'][index % 4],
+      open: true,
+    }))
+
+    const allPlaces = [
+      ...basePlaces,
+      ...googlePlacesForSearch,
+    ]
+
+    const matches = allPlaces.filter((place) => {
+      const searchableText = normalizeSearchText(
+        `${place.name} ${place.category} ${place.address}`
+      )
+
+      return searchableText.includes(searchTerm)
+    })
+
+    setPlacesData(matches)
+    setSelectedPlace(matches[0] || null)
+
+    setSearchMessage(
+      matches.length
+        ? ''
+        : 'Nenhum estabelecimento encontrado para essa pesquisa.'
+    )
   }
+
 
   function clearSearch() {
     setQuery('')
@@ -252,31 +291,66 @@ function App() {
   }), [category, onlyOpen, placesData])
 
   const googlePlacesForMap = useMemo(() => {
-    return googlePlaces.map((place) => ({
+    const locais = googlePlaces.map((place) => ({
       id: place.id,
       name: place.nome || 'Estabelecimento sem nome',
       category: place.categoria || 'Gastronomia',
       address: place.endereco || 'Endereço não informado',
       latitude: Number(place.latitude),
       longitude: Number(place.longitude),
-      fonte: place.fonte,
+      fonte: place.fonte || 'Google Places',
     })).filter((place) =>
       Number.isFinite(place.latitude) &&
       Number.isFinite(place.longitude)
+    )
+
+    return Array.from(
+      new Map(locais.map((place) => [String(place.id), place])).values()
     )
   }, [googlePlaces])
 
   const filteredGooglePlaces = useMemo(() => {
     return googlePlacesForMap.filter((place) => {
-      const matchesCategory =
-        category === 'Todos' ||
-        normalizeSearchText(place.category).includes(
-          normalizeSearchText(category)
-        )
-
-      return matchesCategory
+      return category === 'Todos' || place.category === category
     })
   }, [googlePlacesForMap, category])
+
+  const placesForList = useMemo(() => {
+    const googlePlacesForList = filteredGooglePlaces.map((place, index) => ({
+      ...place,
+      description: 'Estabelecimento encontrado pelo Google Places',
+      distance: 'perto de você',
+      rating: '—',
+      reviews: 0,
+      tone: ['coral', 'yellow', 'blue', 'green'][index % 4],
+      open: true,
+    }))
+
+    return [
+      ...filteredPlaces,
+      ...googlePlacesForList,
+    ].slice(0, 4)
+  }, [filteredPlaces, filteredGooglePlaces])
+
+  const placesForMap = useMemo(() => {
+    // Quando houver pesquisa, mostra somente os resultados encontrados
+    const todosOsLocais = query.trim()
+      ? filteredPlaces
+      : [
+          ...filteredPlaces,
+          ...filteredGooglePlaces,
+        ]
+
+    return Array.from(
+      new Map(
+        todosOsLocais.map((place) => [
+          `${place.fonte || 'ComêMaps'}-${place.id}`,
+          place,
+        ])
+      ).values()
+    )
+  }, [query, filteredPlaces, filteredGooglePlaces])
+
 
   function clearFilters() {
     setCategory('Todos')
@@ -388,9 +462,18 @@ function App() {
 
   function renderHomePlace(place) {
     const saved = isFavorite(place.id)
-    return <div className="place-card-shell" key={place.id}>
+    return <div className="place-card-shell" key={`${place.fonte || 'ComêMaps'}-${place.id}`}>
       <button className={`place-card ${selectedPlace?.id === place.id ? 'selected' : ''}`} onClick={() => setSelectedPlace(place)} type="button"><span className={`place-thumb ${place.tone}`}><Icon name="pin" size={22} /></span><span className="place-info"><span className="place-topline"><strong>{place.name}</strong><span className={`status ${place.open ? 'open' : ''}`}>{place.open ? 'Aberto agora' : 'Fechado'}</span></span><span className="place-description">{place.description}</span><span className="place-meta"><span className="rating"><Icon name="star" size={13} /> {place.rating}</span><span>{place.reviews} avaliações</span><span>•</span><span>{place.distance}</span></span></span><Icon name="arrow" size={17} /></button>
-      {isAuthenticated && <button className={`favorite-save-button home-favorite-button ${saved ? 'saved' : ''}`} type="button" onClick={() => toggleFavorite(place)} aria-label={`${saved ? 'Remover' : 'Salvar'} ${place.name} ${saved ? 'dos' : 'nos'} favoritos`}>{saved ? '♥' : '♡'}</button>}
+      {isAuthenticated && place.fonte !== 'Google Places' && (
+        <button
+          className={`favorite-save-button home-favorite-button ${saved ? 'saved' : ''}`}
+          type="button"
+          onClick={() => toggleFavorite(place)}
+          aria-label={`${saved ? 'Remover' : 'Salvar'} ${place.name} ${saved ? 'dos' : 'nos'} favoritos`}
+        >
+          {saved ? '♥' : '♡'}
+        </button>
+      )}
     </div>
   }
 
@@ -490,14 +573,14 @@ function App() {
 
         <section className="content-grid">
           <div className="results-column">
-            <div className="section-heading"><div><p className="eyebrow">PERTO DE VOCÊ</p><h2>{filteredPlaces.length} lugares para conhecer</h2></div><button className="sort-button" type="button">Mais relevantes <span>⌄</span></button></div>
-            <div className="place-list">{filteredPlaces.length > 0 ? filteredPlaces.map(renderHomePlace) : <div className="empty-state">Nenhum estabelecimento aprovado encontrado.</div>}</div>
+            <div className="section-heading"><div><p className="eyebrow">PERTO DE VOCÊ</p><h2>{placesForList.length} lugares para conhecer</h2></div><button className="sort-button" type="button">Mais relevantes <span>⌄</span></button></div>
+            <div className="place-list">{placesForList.length > 0 ? placesForList.map(renderHomePlace) : <div className="empty-state">Nenhum estabelecimento aprovado encontrado.</div>}</div>
             <button className="outline-button" type="button" onClick={() => { setActiveNav('places'); openView('places') }}>Ver todos os lugares <Icon name="arrow" size={16} /></button>
           </div>
 
           <div className="map-column">
             <div className="map-header"><div><p className="eyebrow">VISÃO GERAL</p><h2>Mapa da região</h2></div><button className="map-control" type="button" onClick={handleRequestLocation}><Icon name="compass" size={16} /> {userLocation ? 'Localização atualizada' : 'Minha localização'}</button></div>
-            <MapPlaceholder selectedPlace={selectedPlace} places={[...filteredPlaces, ...filteredGooglePlaces]}/>
+            <MapPlaceholder selectedPlace={selectedPlace} places={placesForMap} onSelectPlace={setSelectedPlace} highlightMarkers={Boolean(query.trim()) || category !== 'Todos'}/>
           </div>
         </section>
       </main>

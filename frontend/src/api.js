@@ -40,18 +40,33 @@ export function clearAuthSession() {
   window.localStorage.removeItem(AUTH_USER_KEY)
 }
 
+
 export async function loginUsuario(email, senha) {
   try {
-    return await request('/usuarios/login', { method: 'POST', body: JSON.stringify({ email, senha }) })
+    return await request('/usuarios/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, senha }),
+    })
   } catch (error) {
-    if (error.status >= 400 || error.message === 'Failed to fetch') {
-      throw new Error('Usuário não encontrado.', { cause: error })
+    if (error.message === 'Failed to fetch') {
+      throw new Error('Não foi possível conectar ao servidor.')
     }
+
     throw error
   }
 }
+
 export const cadastrarUsuario = (dados) => request('/usuarios/cadastro', { method: 'POST', body: JSON.stringify(dados) })
-export const recuperarSenha = (email) => request('/usuarios/recuperar-senha', { method: 'POST', body: JSON.stringify({ email }) })
+export const recuperarSenha = (email) =>
+  request('/recuperacao-senha/solicitar', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  })
+export const redefinirSenha = (token, novaSenha) =>
+  request('/recuperacao-senha/redefinir', {
+    method: 'POST',
+    body: JSON.stringify({ token, novaSenha })
+  })
 export const atualizarMeuPerfil = (nome) => request('/usuarios/me', { method: 'PATCH', body: JSON.stringify({ nome }) })
 export const listarUsuarios = () => request('/usuarios')
 export const atualizarStatusUsuario = (id, ativo) => request(`/usuarios/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ ativo }) })

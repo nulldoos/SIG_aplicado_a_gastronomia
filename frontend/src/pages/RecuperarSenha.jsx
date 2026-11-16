@@ -24,12 +24,8 @@ export default function RecuperarSenha({ onBack, onNavigate }) {
       if (onNavigate) onNavigate('login', notice)
       else setMessage(notice)
     } catch (error) {
-      if (error.status === 404) {
-        onNavigate?.('login', 'Recuperação enviada')
-      } else {
-        setMessage(error.message || 'Não foi possível solicitar a recuperação.')
-      }
-    } finally {
+      setMessage(error.message || 'Não foi possível solicitar a recuperação.')
+    }finally {
       setLoading(false)
     }
   }
