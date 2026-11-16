@@ -321,11 +321,48 @@ async function atualizarStatusUsuario(req, res) {
         });
     }
 }
+async function atualizarMeuPerfil(req, res) {
+    try {
+        const usuarioId = req.usuario.id;
+        const { nome } = req.body || {};
+
+        if (typeof nome !== "string" || !nome.trim()) {
+            return res.status(400).json({
+                mensagem: "Informe um nome válido."
+            });
+        }
+
+        const nomeFormatado = nome.trim();
+
+        if (nomeFormatado.length > 100) {
+            return res.status(400).json({
+                mensagem: "O nome deve ter no máximo 100 caracteres."
+            });
+        }
+
+        await usuarioModel.atualizarDados(usuarioId, nomeFormatado);
+
+        const usuarioAtualizado = await usuarioModel.buscarPorId(usuarioId);
+
+        return res.status(200).json({
+            mensagem: "Nome atualizado com sucesso.",
+            usuario: usuarioAtualizado
+        });
+
+    } catch (erro) {
+        console.error("Erro ao atualizar perfil:", erro);
+
+        return res.status(500).json({
+            mensagem: "Erro ao atualizar perfil."
+        });
+    }
+}
 
 module.exports = {
     cadastrarUsuario,
     loginUsuario,
     listarUsuarios,
     buscarUsuario,
-    atualizarStatusUsuario
+    atualizarStatusUsuario,
+    atualizarMeuPerfil
 };

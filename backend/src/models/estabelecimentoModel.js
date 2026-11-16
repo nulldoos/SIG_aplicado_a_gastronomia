@@ -112,7 +112,8 @@ async function atualizarEstabelecimento(id, dados) {
                  endereco = ?,
                  telefone = ?,
                  latitude = ?,
-                 longitude = ?
+                 longitude = ?,
+                 status = 'PENDING'
              WHERE id = ?`,
             [
                 nome,
@@ -261,6 +262,28 @@ async function buscarEstabelecimentoPorId(id) {
     return estabelecimentos[0] || null;
 }
 
+async function listarPorUsuario(usuarioId) {
+    const [estabelecimentos] = await conexao.query(`
+        SELECT
+            e.*,
+            GROUP_CONCAT(
+                DISTINCT c.nome
+                ORDER BY c.nome
+                SEPARATOR ', '
+            ) AS categorias
+        FROM estabelecimentos e
+        LEFT JOIN estabelecimento_categorias ec
+            ON e.id = ec.estabelecimento_id
+        LEFT JOIN categorias c
+            ON ec.categoria_id = c.id
+        WHERE e.criado_por = ?
+        GROUP BY e.id
+        ORDER BY e.criado_em DESC
+    `, [usuarioId]);
+
+    return estabelecimentos;
+}
+
 module.exports = {
     listarTodos,
     cadastrarEstabelecimento,
@@ -269,5 +292,6 @@ module.exports = {
     listarPendentes,
     atualizarStatus,
     listarAprovados,
-    buscarEstabelecimentoPorId
+    buscarEstabelecimentoPorId,
+    listarPorUsuario
 };

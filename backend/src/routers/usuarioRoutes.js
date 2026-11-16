@@ -6,11 +6,11 @@ const usuarioController = require("../controllers/usuarioController");
 const autenticarUsuario = require("../middlewares/autenticarUsuario");
 const autorizarAdmin = require("../middlewares/autorizarAdmin");
 
-// Cadastro e login (públicos)
+// cadastro e login (públicos)
 router.post("/cadastro", usuarioController.cadastrarUsuario);
 router.post("/login", usuarioController.loginUsuario);
 
-// Listar usuários (ADMIN)
+// listar usuários 
 router.get(
     "/",
     autenticarUsuario,
@@ -18,7 +18,7 @@ router.get(
     usuarioController.listarUsuarios
 );
 
-// Buscar usuário por ID (ADMIN)
+// buscar usuário por ID 
 router.get(
     "/:id",
     autenticarUsuario,
@@ -26,12 +26,19 @@ router.get(
     usuarioController.buscarUsuario
 );
 
-// Ativar ou desativar usuário (ADMIN)
+// ativar ou desativar usuário 
 router.patch(
     "/:id/status",
     autenticarUsuario,
     autorizarAdmin,
     usuarioController.atualizarStatusUsuario
+);
+
+// atualizar dados do usuário
+router.patch(
+    "/me",
+    autenticarUsuario,
+    usuarioController.atualizarMeuPerfil
 );
 
 module.exports = router;

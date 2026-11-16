@@ -16,6 +16,21 @@ router.get(
     estabelecimentoController.listarEstabelecimentosPendentes
 );
 
+// Listar todos os estabelecimentos (admin)
+router.get(
+    "/admin",
+    autenticarUsuario,
+    autorizarAdmin,
+    estabelecimentoController.listarEstabelecimentosAdmin
+);
+
+// Listar estabelecimentos cadastrados pelo usuário logado
+router.get(
+    "/minhas",
+    autenticarUsuario,
+    estabelecimentoController.listarMeusEstabelecimentos
+);
+
 // detalhes do estabelecimento
 router.get("/:id", estabelecimentoController.buscarEstabelecimento);
 
@@ -49,5 +64,6 @@ router.delete(
     autorizarAdmin,
     estabelecimentoController.excluirEstabelecimento
 );
+
 
 module.exports = router;
