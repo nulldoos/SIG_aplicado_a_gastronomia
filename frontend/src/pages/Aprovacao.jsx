@@ -16,7 +16,21 @@ function normalizeStatus(status) {
 }
 
 function normalizeEstabelecimento(estabelecimento) {
-  return { ...estabelecimento, status: normalizeStatus(estabelecimento.status), categoria: estabelecimento.categoria?.nome || estabelecimento.categoria || estabelecimento.categorias?.split(',')[0]?.trim() || 'Gastronomia' }
+  return {
+    ...estabelecimento,
+    latitude: estabelecimento.latitude != null
+      ? Number(estabelecimento.latitude)
+      : null,
+    longitude: estabelecimento.longitude != null
+      ? Number(estabelecimento.longitude)
+      : null,
+    status: normalizeStatus(estabelecimento.status),
+    categoria:
+      estabelecimento.categoria?.nome ||
+      estabelecimento.categoria ||
+      estabelecimento.categorias?.split(',')[0]?.trim() ||
+      'Gastronomia',
+  }
 }
 
 export default function Aprovacao({ onBack }) {
@@ -40,7 +54,15 @@ export default function Aprovacao({ onBack }) {
 
   async function salvarEdicao(changes) {
     await atualizarEstabelecimento(editingPlace.id, changes)
-    setEstabelecimentos((atuais) => atuais.map((estabelecimento) => estabelecimento.id === editingPlace.id ? { ...estabelecimento, ...changes } : estabelecimento))
+
+    setEstabelecimentos((atuais) =>
+      atuais.map((estabelecimento) =>
+        estabelecimento.id === editingPlace.id
+          ? { ...estabelecimento, ...changes, status: 'PENDENTE' }
+          : estabelecimento
+      )
+    )
+
     setEditingPlace(null)
   }
 

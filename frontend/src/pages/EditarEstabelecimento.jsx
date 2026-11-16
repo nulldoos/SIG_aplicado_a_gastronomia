@@ -81,7 +81,7 @@ export default function EditarEstabelecimento({ estabelecimento, onBack, onSave,
     }
   }
 
-  const mapPlace = { name: form.nome, category: form.categoria, distance: 'local editado', tone: 'coral' }
+  const mapPlace = { name: form.nome, category: form.categoria, distance: 'local editado', tone: 'coral', latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null }
 
   return (
     <section className="admin-page edit-establishment-page">

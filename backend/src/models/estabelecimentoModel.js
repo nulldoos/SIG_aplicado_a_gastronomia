@@ -112,7 +112,8 @@ async function atualizarEstabelecimento(id, dados) {
                  endereco = ?,
                  telefone = ?,
                  latitude = ?,
-                 longitude = ?
+                 longitude = ?,
+                 status = 'PENDING'
              WHERE id = ?`,
             [
                 nome,
