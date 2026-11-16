@@ -24,7 +24,7 @@ export default function Favoritos({ favoritePlaces = [], onToggleFavorite, onBac
         </div>
 
         {favoritePlaces.length > 0 ? <div className="all-places-list favorites-list">
-          {favoritePlaces.map((local) => <article className="all-place-card favorite-place-card" key={local.id}>
+          {favoritePlaces.map((local) => <article className="all-place-card favorite-place-card" key={`${local.fonte}-${local.id}`}>
             <span className={`place-thumb ${local.tone}`} aria-hidden="true">⌖</span>
             <span className="admin-place-info"><strong>{local.name}</strong><small>{local.category} · {local.address}</small><span>{local.description}</span></span>
             <button className="favorite-save-button saved" type="button" onClick={() => onToggleFavorite(local)} aria-label={`Remover ${local.name} dos favoritos`}>♥ <span>Salvo</span></button>
