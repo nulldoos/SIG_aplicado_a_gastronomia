@@ -58,6 +58,7 @@ export default function ListaEstabelecimentos({
               normalizePlace(
                 {
                   ...place,
+                  id: String(place.id).replace(/^google-/, ''),
                   descricao: "Estabelecimento encontrado pelo Google Places",
                 },
                 index,
@@ -130,14 +131,14 @@ export default function ListaEstabelecimentos({
                 </small>
                 <span>{local.descricao}</span>
               </span>
-              {isAuthenticated && local.fonte === 'ComêMaps' && (
+              {isAuthenticated && (
                 <button
-                  className={`favorite-save-button ${isFavorite?.(local.id) ? 'saved' : ''}`}
+                  className={`favorite-save-button ${isFavorite?.(local) ? 'saved' : ''}`}
                   type="button"
                   onClick={() => onToggleFavorite?.(local)}
                 >
-                  {isFavorite?.(local.id) ? '♥' : '♡'}
-                  <span>{isFavorite?.(local.id) ? 'Salvo' : 'Salvar'}</span>
+                  {isFavorite?.(local) ? '♥' : '♡'}
+                  <span>{isFavorite?.(local) ? 'Salvo' : 'Salvar'}</span>
                 </button>
               )}
               <a
