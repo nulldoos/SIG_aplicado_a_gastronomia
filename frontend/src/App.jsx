@@ -50,8 +50,11 @@ function normalizePlace(place, index = 0) {
 }
 
 function normalizeFavoritePlace(place) {
+  const isGoogle = place.fonte === 'Google Places' || Boolean(place.google_place_id)
+
   return {
-    id: String(place.id ?? place.nome ?? place.name),
+    id: String(isGoogle ? (place.google_place_id || place.id) : (place.estabelecimento_id || place.id)),
+    fonte: isGoogle ? 'Google Places' : 'ComêMaps',
     name: place.name || place.nome || 'Estabelecimento sem nome',
     category: place.category || place.categoria || 'Gastronomia',
     description: place.description || place.descricao || 'Lugar para conhecer na cidade',
@@ -61,7 +64,6 @@ function normalizeFavoritePlace(place) {
     tone: place.tone || 'coral',
   }
 }
-
 function normalizeSearchText(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
@@ -301,7 +303,7 @@ function App() {
 
   const googlePlacesForMap = useMemo(() => {
     const locais = googlePlaces.map((place) => ({
-      id: place.id,
+      id: place.id.replace(/^google-/, ''),
       name: place.nome || 'Estabelecimento sem nome',
       category: place.categoria || 'Gastronomia',
       address: place.endereco || 'Endereço não informado',
@@ -366,8 +368,12 @@ function App() {
     setOnlyOpen(false)
   }
 
-  function isFavorite(id) {
-    return favoritePlaces.some((place) => String(place.id) === String(id))
+  function isFavorite(place) {
+    const normalized = normalizeFavoritePlace(place)
+
+    return favoritePlaces.some((item) =>
+      item.id === normalized.id && item.fonte === normalized.fonte
+    )
   }
 
   async function toggleFavorite(place) {
@@ -375,14 +381,23 @@ function App() {
       openView('login', 'Entre na conta para salvar seus favoritos.')
       return
     }
+
     const normalizedPlace = normalizeFavoritePlace(place)
-    const alreadySaved = favoritePlaces.some((item) => String(item.id) === normalizedPlace.id)
+
+    const alreadySaved = favoritePlaces.some((item) =>
+      item.id === normalizedPlace.id && item.fonte === normalizedPlace.fonte
+    )
+
     try {
       if (alreadySaved) {
-        await removerFavorito(normalizedPlace.id)
-        setFavoritePlaces((current) => current.filter((item) => String(item.id) !== normalizedPlace.id))
+        await removerFavorito(normalizedPlace)
+        setFavoritePlaces((current) =>
+          current.filter((item) =>
+            !(item.id === normalizedPlace.id && item.fonte === normalizedPlace.fonte)
+          )
+        )
       } else {
-        await adicionarFavorito(normalizedPlace.id)
+        await adicionarFavorito(normalizedPlace)
         setFavoritePlaces((current) => [...current, normalizedPlace])
       }
     } catch (error) {
@@ -470,10 +485,10 @@ function App() {
   }
 
   function renderHomePlace(place) {
-    const saved = isFavorite(place.id)
+    const saved = isFavorite(place)
     return <div className="place-card-shell" key={`${place.fonte || 'ComêMaps'}-${place.id}`}>
       <button className={`place-card ${selectedPlace?.id === place.id ? 'selected' : ''}`} onClick={() => setSelectedPlace(place)} type="button"><span className={`place-thumb ${place.tone}`}><Icon name="pin" size={22} /></span><span className="place-info"><span className="place-topline"><strong>{place.name}</strong><span className={`status ${place.open ? 'open' : ''}`}>{place.open ? 'Aberto agora' : 'Fechado'}</span></span><span className="place-description">{place.description}</span><span className="place-meta"><span className="rating"><Icon name="star" size={13} /> {place.rating}</span><span>{place.reviews} avaliações</span><span>•</span><span>{place.distance}</span></span></span><Icon name="arrow" size={17} /></button>
-      {isAuthenticated && place.fonte !== 'Google Places' && (
+      {isAuthenticated && (
         <button
           className={`favorite-save-button home-favorite-button ${saved ? 'saved' : ''}`}
           type="button"

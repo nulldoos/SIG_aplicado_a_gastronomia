@@ -88,8 +88,30 @@ export const atualizarStatusEstabelecimento = (id, status) => request(`/estabele
 export const atualizarEstabelecimento = (id, dados) => request(`/estabelecimentos/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(dados) })
 export const excluirEstabelecimento = (id) => request(`/estabelecimentos/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const listarFavoritos = () => request('/favoritos')
-export const adicionarFavorito = (estabelecimentoId) => request('/favoritos', { method: 'POST', body: JSON.stringify({ estabelecimento_id: estabelecimentoId }) })
-export const removerFavorito = (estabelecimentoId) => request(`/favoritos/${encodeURIComponent(estabelecimentoId)}`, { method: 'DELETE' })
+export const adicionarFavorito = (place) => {
+  if (place.fonte === 'Google Places') {
+    return request('/favoritos', {
+      method: 'POST',
+      body: JSON.stringify({ google_place_id: place.id })
+    })
+  }
+
+  return request('/favoritos', {
+    method: 'POST',
+    body: JSON.stringify({ estabelecimento_id: place.id })
+  })
+}
+export const removerFavorito = (place) => {
+  if (place.fonte === 'Google Places') {
+    return request(`/favoritos/google/${encodeURIComponent(place.id)}`, {
+      method: 'DELETE'
+    })
+  }
+
+  return request(`/favoritos/${encodeURIComponent(place.id)}`, {
+    method: 'DELETE'
+  })
+}
 export function listarCategorias() { return request('/categorias') }
 
 export async function buscarEnderecoPorCep(cep) {
