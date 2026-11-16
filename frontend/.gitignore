@@ -25,3 +25,4 @@ src/mockAuth.js
 *.njsproj
 *.sln
 *.sw?
+.env
