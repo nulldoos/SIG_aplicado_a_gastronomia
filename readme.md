@@ -239,6 +239,19 @@ O projeto está sendo desenvolvido como parte de um trabalho acadêmico da gradu
 
 A proposta é integrar desenvolvimento web, banco de dados, APIs e tecnologias de geolocalização para construir uma solução que facilite a descoberta de estabelecimentos gastronômicos.
 
+
+## 🧪️ Testes 
+Na pasta backend, execute: 
+
+```bash
+
+# Instalar dependências de desenvolvimento
+npm install --save-dev jest supertest
+# Executar toda a suíte de testes
+npx jest --runInBand
+# Executar com relatório de cobertura de código
+npx jest --runInBand --coverage
+```
 ---
 
 **ComêMaps — Descubra novos lugares, encontre sabores e explore a gastronomia!**
